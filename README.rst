@@ -31,8 +31,10 @@ Installation
 
 Requirements
 ------------
-- Python (>= 3.5)
+.. _Scikit-Learn: https://scikit-learn.org/
 
+- Python (>= 3.5)
+- Scikit-Learn_ (>= 0.21)
 
 Documentation
 -------------
