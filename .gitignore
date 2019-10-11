@@ -65,3 +65,9 @@ doc/generated/
 
 # PyBuilder
 target/
+
+# Pycharm
+.idea
+
+# General MacOS
+.DS_Store
