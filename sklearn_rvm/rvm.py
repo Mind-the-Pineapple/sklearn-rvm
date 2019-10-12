@@ -266,20 +266,22 @@ class RVR(BaseRVM, RegressorMixin):
             self.X_sv_ = X[cond_sv]
             self.Y_sv_ = y[cond_sv]
 
-        self.mu = mu[cond_sv]
+        self.mu_ = mu[cond_sv]
         self.Sigma = Sigma[cond_sv][:, cond_sv]
         self.sigma_squared = sigma_squared
 
     def predict(self, X):
-        # check_is_fitted(self)
+        # Check is fit had been called
+        check_is_fitted(self, ['X_sv_', 'mu_'])
+
         X = check_array(X)
 
         n_samples, n_features = X.shape
         K = self._get_kernel(X, self.X_sv_)
         N_sv = np.shape(self.X_sv_)[0]
-        if np.shape(self.mu)[0] != N_sv:
-            K = np.hstack((np.ones(n_samples).reshape((n_samples, 1)), K))
-        y = K.dot(self.mu)
+        if np.shape(self.mu_)[0] != N_sv:
+            K = np.hstack((np.ones((n_samples, 1)), K))
+        y = K.dot(self.mu_)
         return y
 
 
