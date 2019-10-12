@@ -54,14 +54,6 @@ class BaseRVM(BaseEstimator, metaclass=ABCMeta):
         return pairwise_kernels(X, Y, metric=self.kernel,
                                 filter_params=True, **params)
 
-    @property
-    def coef_(self):
-        pass
-
-    @property
-    def relevant_vectors_(self):
-        pass
-
 
 class RVR(BaseRVM, RegressorMixin):
     """Relevance Vector Regressor.
@@ -124,6 +116,41 @@ class RVR(BaseRVM, RegressorMixin):
             tol=tol, threshold_alpha=threshold_alpha,
             max_iter=max_iter, verbose=verbose, class_weight=None, random_state=None)
 
+    def _calculate_statistics(self, K, alpha_values, included_cond, y, sigma_squared):
+        n_samples = y.shape[0]
+
+        A = np.diag(alpha_values[included_cond])
+        Phi = K[:, included_cond]
+
+        tmp = A + (1 / sigma_squared) * Phi.T @ Phi
+        if tmp.shape[0] == 1:
+            Sigma = 1 / tmp
+        else:
+            try:
+                Sigma = np.linalg.inv(tmp)
+            except np.linalg.LinAlgError:
+                Sigma = np.linalg.pinv(tmp)
+
+        mu = (1 / sigma_squared) * Sigma @ Phi.T @ y
+
+        # Update s and q
+        Q = np.zeros(n_samples + 1)
+        S = np.zeros(n_samples + 1)
+        B = np.identity(n_samples) / sigma_squared
+        for i in range(n_samples + 1):
+            basis = K[:, i]
+            # Using the Woodbury Identity, we obtain Eq. 24 and 25 from [1]
+            tmp_1 = basis.T @ B
+            tmp_2 = tmp_1 @ Phi @ Sigma @ Phi.T @ B
+            Q[i] = tmp_1 @ y - tmp_2 @ y
+            S[i] = tmp_1 @ basis - tmp_2 @ basis
+
+        denominator = (alpha_values - S)
+        s = (alpha_values * S) / denominator
+        q = (alpha_values * Q) / denominator
+
+        return Sigma, mu, s, q, Phi
+
     def fit(self, X, y):
         """"""
         # TODO: Add fit_intercept (With and without bias)
@@ -150,30 +177,8 @@ class RVR(BaseRVM, RegressorMixin):
 
         included_cond[selected_basis] = True
 
-        # 3. Initialize Sigma and mu
-        A = np.array(([alpha_values[0]]))  # A = np.diag(alpha_values[included_cond])
-        basis_column = basis_column.reshape((n_samples, 1))  # basis_column[:, None]
-        # Since it start as scalar
-        Sigma = 1 / (A + (1 / sigma_squared) * basis_column.T @ basis_column)
-        mu = (1 / sigma_squared) * Sigma @ basis_column.T @ y
-
-        # 3. Initialize q and s for all bases
-        Q = np.zeros(n_samples + 1)
-        S = np.zeros(n_samples + 1)
-        Phi = basis_column
-        B = np.identity(n_samples) / sigma_squared
-        for i in range(n_samples + 1):
-            basis = K[:, i]
-            # Using the Woodbury Identity, we obtain Eq. 24 and 25 from [1]
-            tmp_1 = basis.T @ B
-            tmp_2 = tmp_1 @ Phi @ Sigma @ Phi.T @ B
-
-            S[i] = tmp_1 @ basis - tmp_2 @ basis
-            Q[i] = tmp_1 @ y - tmp_2 @ y
-
-        denominator = (alpha_values - S)
-        s = (alpha_values * S) / denominator
-        q = (alpha_values * Q) / denominator
+        # 3. Initialize Sigma and mu, and q and s for all bases
+        Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha_values, included_cond, y, sigma_squared)
 
         # Start updating the model iteratively
         # Create queue with indices to select candidates for update
@@ -211,35 +216,7 @@ class RVR(BaseRVM, RegressorMixin):
                                 np.multiply(alpha_values[included_cond], np.diag(Sigma))))
 
             # 10. Recompute/update Sigma and mu as well as s and q
-            A = np.diag(alpha_values[included_cond])
-            Phi = K[:, included_cond]
-            B = np.identity(n_samples) / sigma_squared
-
-            # Compute Sigma
-            tmp = A + (1 / sigma_squared) * Phi.T @ Phi
-            if tmp.shape[0] == 1:
-                Sigma = 1 / tmp
-            else:
-                try:
-                    Sigma = np.linalg.inv(tmp)
-                except np.linalg.LinAlgError:
-                    Sigma = np.linalg.pinv(tmp)
-
-            # Compute mu
-            mu = (1 / sigma_squared) * Sigma @ Phi.T @ y
-
-            # Update s and q
-            for i in range(n_samples + 1):
-                basis = K[:, i]
-                # Using the Woodbury Identity, we obtain Eq. 24 and 25 from [1]
-                tmp_1 = basis.T @ B
-                tmp_2 = tmp_1 @ Phi @ Sigma @ Phi.T @ B
-                Q[i] = tmp_1 @ y - tmp_2 @ y
-                S[i] = tmp_1 @ basis - tmp_2 @ basis
-
-            denominator = (alpha_values - S)
-            s = (alpha_values * S) / denominator
-            q = (alpha_values * Q) / denominator
+            Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha_values, included_cond, y, sigma_squared)
 
             # 11. Check for convergence
             tol = 1e-6
