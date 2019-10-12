@@ -96,6 +96,16 @@ class RVR(BaseRVM, RegressorMixin):
 
     Attributes
     ----------
+    relevance_ : array-like, shape = [n_relevance]
+        Indices of relevance vectors.
+
+    relevance_vectors_ : array-like, shape = [n_relevance, n_features]
+        Relevance vectors (equivalent to X[relevance_]).
+
+    coef_ : array, shape = [1, n_features]
+        Weights assigned to the features (coefficients in the primal
+        problem). This is only available in the case of a linear kernel.
+
 
     Examples
     --------
@@ -103,7 +113,7 @@ class RVR(BaseRVM, RegressorMixin):
     Notes
     -----
     **References:**
-    `Fast Marginal Likelihood Maximisation forSparse Bayesian Models
+    `Fast Marginal Likelihood Maximisation for Sparse Bayesian Models
     <http://www.miketipping.com/papers/met-fastsbl.pdf>`__
     """
 
@@ -117,6 +127,7 @@ class RVR(BaseRVM, RegressorMixin):
             max_iter=max_iter, verbose=verbose, class_weight=None, random_state=None)
 
     def _calculate_statistics(self, K, alpha_values, included_cond, y, sigma_squared):
+        """TODO: Add documentation"""
         n_samples = y.shape[0]
 
         A = np.diag(alpha_values[included_cond])
@@ -152,7 +163,7 @@ class RVR(BaseRVM, RegressorMixin):
         return Sigma, mu, s, q, Phi
 
     def fit(self, X, y):
-        """"""
+        """TODO: Add documentation"""
         # TODO: Add fit_intercept (With and without bias)
         # TODO: Add fixed sigma_squared
 
@@ -210,6 +221,7 @@ class RVR(BaseRVM, RegressorMixin):
 
             # 9. Estimate noise level
             # Format from the fast paper
+            # TODO: Fix bug here
             y_pred = np.dot(Phi, mu)
             sigma_squared = (np.linalg.norm(y - y_pred) ** 2) / \
                             (n_samples - np.sum(included_cond) + np.sum(
@@ -219,39 +231,37 @@ class RVR(BaseRVM, RegressorMixin):
             Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha_values, included_cond, y, sigma_squared)
 
             # 11. Check for convergence
-            tol = 1e-6
             delta = alpha_values[current_included_cond] - current_alpha_values[current_included_cond]
             not_included_cond = np.logical_not(included_cond)
-            if (np.sum(np.absolute(delta)) < tol) and all(th <= 0 for th in theta[not_included_cond]):
+            if (np.sum(np.absolute(delta)) < self.tol) and all(th <= 0 for th in theta[not_included_cond]):
                 break
 
+        # TODO: Review this part
         alpha_values = alpha_values[included_cond]
         X = X[included_cond[1:n_samples + 1]]
-        y = y[included_cond[1:n_samples + 1]]
 
-        threshold_alpha = 1e5
-        cond_sv = alpha_values < threshold_alpha
+        cond_rv = alpha_values < self.threshold_alpha
         if alpha_values.shape[0] != X.shape[0]:
-            self.X_sv_ = X[cond_sv[1:n_samples + 1]]
-            self.Y_sv_ = y[cond_sv[1:n_samples + 1]]
+            self.relevance_vectors_ = X[cond_rv[1:n_samples + 1]]
         else:
-            self.X_sv_ = X[cond_sv]
-            self.Y_sv_ = y[cond_sv]
+            self.relevance_vectors_ = X[cond_rv]
 
-        self.mu_ = mu[cond_sv]
-        self.Sigma_ = Sigma[cond_sv][:, cond_sv]
+        self.mu_ = mu[cond_rv]
+        self.coef_ = self.mu_
+        self.Sigma_ = Sigma[cond_rv][:, cond_rv]
         self.sigma_squared_ = sigma_squared
 
     def predict(self, X):
+        """TODO: Add documentation"""
         # Check is fit had been called
-        check_is_fitted(self, ['X_sv_', 'mu_'])
+        check_is_fitted(self, ['relevance_vectors_', 'mu_'])
 
         X = check_array(X)
 
         n_samples = X.shape[0]
-        K = self._get_kernel(X, self.X_sv_)
-        N_sv = np.shape(self.X_sv_)[0]
-        if np.shape(self.mu_)[0] != N_sv:
+        K = self._get_kernel(X, self.relevance_vectors_)
+        N_rv = np.shape(self.relevance_vectors_)[0]
+        if np.shape(self.mu_)[0] != N_rv:
             K = np.hstack((np.ones((n_samples, 1)), K))
         y = K.dot(self.mu_)
         return y
