@@ -13,6 +13,8 @@ from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.utils.validation import check_X_y, check_is_fitted, check_array
 from sklearn.metrics.pairwise import pairwise_kernels
 
+INFINITY = 1e20
+
 
 class BaseRVM(BaseEstimator, metaclass=ABCMeta):
     """Base class for relevance vector machines"""
@@ -72,7 +74,8 @@ class RVR(BaseRVM, RegressorMixin):
     --------
     """
 
-    def __init__(self, kernel='rbf', degree=3, gamma='auto_deprecated', coef0=0.0, tol=1e-6,threshold_alpha=1e5, max_iter=5000, verbose=False):
+    def __init__(self, kernel='rbf', degree=3, gamma='auto_deprecated', coef0=0.0, tol=1e-6, threshold_alpha=1e5,
+                 max_iter=5000, verbose=False):
 
         super().__init__(
             kernel=kernel, degree=degree, gamma=gamma, coef0=coef0,
@@ -84,7 +87,7 @@ class RVR(BaseRVM, RegressorMixin):
         X, y = check_X_y(X, y, y_numeric=True, ensure_min_samples=2)
 
         n_samples, n_features = X.shape
-        coef_ = np.zeros(n_features)
+        # coef_ = np.zeros(n_features)
         # self.X_fit_ = X
 
         K = self._get_kernel(X)
@@ -95,21 +98,21 @@ class RVR(BaseRVM, RegressorMixin):
         B = np.identity(n_samples) / sigma_squared
 
         # 2. Initialize one alpha value and set all the others to infinity.
-        alpha_values = np.zeros(n_samples + 1) + np.PINF
+        alpha_values = np.zeros(n_samples + 1) + INFINITY
         included_cond = np.zeros(n_samples + 1, dtype=bool)
 
         basis_column = K[:, 0]
         phi_norm_squared = np.linalg.norm(basis_column) ** 2
-        alpha_values[0] = phi_norm_squared / (
-                (np.linalg.norm(np.dot(basis_column, y)) ** 2) / phi_norm_squared - sigma_squared)
+        alpha_values[0] = phi_norm_squared / \
+                          ((np.linalg.norm((basis_column @ y)) ** 2) / phi_norm_squared - sigma_squared)
 
         included_cond[0] = True
 
         # 3. Initialize Sigma and mu
         A = np.array(([alpha_values[0]]))  # A = np.diag(alpha_values[included_cond])
         basis_column = basis_column.reshape((n_samples, 1))  # basis_column[:, None]
-        Sigma = 1 / (A + np.dot(np.dot(basis_column.T, B), basis_column))
-        mu = np.dot(np.dot(np.dot(Sigma, basis_column.T), B), y)
+        Sigma = 1 / (A + basis_column.T @ B @ basis_column)
+        mu = Sigma @ basis_column.T @ B @ y
 
         # 3. Initialize q and s for all bases
         Q = np.zeros(n_samples + 1)
@@ -118,10 +121,10 @@ class RVR(BaseRVM, RegressorMixin):
         for i in range(n_samples + 1):
             basis = K[:, i]
             # Using the Woodbury Identity, we obtain Eq. 24 and 25 from [1]
-            tmp_1 = np.dot(basis.T, B)
-            tmp_2 = tmp_1.dot(Phi).dot(Sigma).dot(Phi.T).dot(B)
-            Q[i] = tmp_1.dot(y) - tmp_2.dot(y)
-            S[i] = tmp_1.dot(basis) - tmp_2.dot(basis)
+            tmp_1 = basis.T @ B
+            tmp_2 = tmp_1 @ Phi @ Sigma @ Phi.T @ B
+            Q[i] = tmp_1 @ y - tmp_2 @ y
+            S[i] = tmp_1 @ basis - tmp_2 @ basis
 
         denominator = (alpha_values - S)
         s = (alpha_values * S) / denominator
@@ -142,18 +145,18 @@ class RVR(BaseRVM, RegressorMixin):
             next_alpha_values = np.copy(alpha_values)
             next_included_cond = np.copy(included_cond)
 
-            if theta[basis_idx] > 0 and alpha_values[basis_idx] < np.PINF:
+            if theta[basis_idx] > 0 and alpha_values[basis_idx] < INFINITY:
                 # 6. Re-estimate alpha
                 next_alpha_values[basis_idx] = s[basis_idx] ** 2 / (q[basis_idx] ** 2 - s[basis_idx])
 
-            elif theta[basis_idx] > 0 and alpha_values[basis_idx] >= np.PINF:
+            elif theta[basis_idx] > 0 and alpha_values[basis_idx] >= INFINITY:
                 # 7. Add basis function to the model with updated alpha
                 next_alpha_values[basis_idx] = s[basis_idx] ** 2 / (q[basis_idx] ** 2 - s[basis_idx])
                 next_included_cond[basis_idx] = True
 
-            elif theta[basis_idx] <= 0 and alpha_values[basis_idx] < np.PINF:
+            elif theta[basis_idx] <= 0 and alpha_values[basis_idx] < INFINITY:
                 # 8. Delete theta basis function from model and set alpha to infinity
-                next_alpha_values[basis_idx] = np.PINF
+                next_alpha_values[basis_idx] = INFINITY
                 next_included_cond[basis_idx] = False
 
             # 9. Estimate noise level
@@ -162,12 +165,8 @@ class RVR(BaseRVM, RegressorMixin):
             next_sigma_squared = (np.linalg.norm(y - np.dot(Phi, mu)) ** 2) / (n_samples - np.sum(gamma_values))
 
             # 11. Check for convergence
-            # Check if algorithm has converged (variation of alpha and sigma)
+            delta = next_alpha_values[included_cond] - alpha_values[included_cond]
             not_included_cond = np.logical_not(included_cond)
-            if (np.sum(np.absolute(
-                    next_alpha_values[included_cond] - alpha_values[included_cond])) < self.tol) and all(
-                th <= 0 for th in theta[not_included_cond]):
-                break
 
             # TODO: verify change order
             # 10. Recompute/update  Sigma and mu as well as s and q
@@ -180,7 +179,7 @@ class RVR(BaseRVM, RegressorMixin):
             Phi = K[:, included_cond]
 
             # Compute Sigma
-            tmp = np.dot(np.dot(Phi.T, B), Phi) + A
+            tmp = Phi.T @ B @ Phi + A
             if tmp.shape[0] == 1:
                 Sigma = 1 / tmp
             else:
@@ -190,22 +189,26 @@ class RVR(BaseRVM, RegressorMixin):
                     Sigma = np.linalg.pinv(tmp)
 
             # Compute mu
-            mu = np.dot(np.dot(np.dot(Sigma, Phi.T), B),y)
+            mu = Sigma @ Phi.T @ B @ y
 
             # TODO: Deal with repeated code
             # Update s and q
             for i in range(n_samples + 1):
                 basis = K[:, i]
                 # Using the Woodbury Identity, we obtain Eq. 24 and 25 from [1]
-                tmp_1 = np.dot(basis.T, B)
-                tmp_2 = tmp_1.dot(Phi).dot(Sigma).dot(Phi.T).dot(B)
-                Q[i] = tmp_1.dot(y) - tmp_2.dot(y)
-                S[i] = tmp_1.dot(basis) - tmp_2.dot(basis)
+                tmp_1 = basis.T @ B
+                tmp_2 = tmp_1 @ Phi @ Sigma @ Phi.T @ B
+                Q[i] = tmp_1 @ y - tmp_2 @ y
+                S[i] = tmp_1 @ basis - tmp_2 @ basis
 
             denominator = (alpha_values - S)
             s = (alpha_values * S) / denominator
             q = (alpha_values * Q) / denominator
 
+            # 11. Check for convergence
+            # Check if algorithm has converged (variation of alpha and sigma)
+            if (np.sum(np.absolute(delta)) < self.tol) and all(th <= 0 for th in theta[not_included_cond]):
+                break
 
         # We store the relevance vectors and other important variables
         alpha_values = alpha_values[included_cond]
