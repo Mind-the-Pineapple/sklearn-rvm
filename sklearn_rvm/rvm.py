@@ -4,9 +4,8 @@ Relevance vector machine.
 # Author: Pedro Ferreira da Costa
 #         Walter Hugo Lopez Pinaya
 # License: BSD 3 clause
-from collections import deque
-
 from abc import ABCMeta, abstractmethod
+from collections import deque
 
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
@@ -127,56 +126,58 @@ class RVR(BaseRVM, RegressorMixin):
 
     def fit(self, X, y):
         """"""
+        # TODO: Add fit_intercept (With and without bias)
+        # TODO: Add fixed sigma_squared
+
         X, y = check_X_y(X, y, y_numeric=True, ensure_min_samples=2)
 
-        n_samples, n_features = X.shape
-        # coef_ = np.zeros(n_features)
-        # self.X_fit_ = X
-
-        K = self._get_kernel(X)
+        n_samples = X.shape[0]
+        K = pairwise_kernels(X, metric='linear', filter_params=True)
         K = np.hstack((np.ones((n_samples, 1)), K))
 
-        # 1. Initialize the sigma squared value and the B matrix
+        # 1. Initialize the sigma squared value
         sigma_squared = np.var(y) * 0.1
-        B = np.identity(n_samples) / sigma_squared
 
         # 2. Initialize one alpha value and set all the others to infinity.
         alpha_values = np.zeros(n_samples + 1) + INFINITY
         included_cond = np.zeros(n_samples + 1, dtype=bool)
 
-        basis_column = K[:, 0]
+        selected_basis = 0
+        basis_column = K[:, selected_basis]
         phi_norm_squared = np.linalg.norm(basis_column) ** 2
-        alpha_values[0] = phi_norm_squared / \
-                          ((np.linalg.norm((basis_column @ y)) ** 2) / phi_norm_squared - sigma_squared)
+        alpha_values[selected_basis] = phi_norm_squared / \
+                                       ((np.linalg.norm((basis_column @ y)) ** 2) / phi_norm_squared - sigma_squared)
 
-        included_cond[0] = True
+        included_cond[selected_basis] = True
 
         # 3. Initialize Sigma and mu
         A = np.array(([alpha_values[0]]))  # A = np.diag(alpha_values[included_cond])
         basis_column = basis_column.reshape((n_samples, 1))  # basis_column[:, None]
-        Sigma = 1 / (A + basis_column.T @ B @ basis_column)
-        mu = Sigma @ basis_column.T @ B @ y
+        # Since it start as scalar
+        Sigma = 1 / (A + (1 / sigma_squared) * basis_column.T @ basis_column)
+        mu = (1 / sigma_squared) * Sigma @ basis_column.T @ y
 
         # 3. Initialize q and s for all bases
         Q = np.zeros(n_samples + 1)
         S = np.zeros(n_samples + 1)
         Phi = basis_column
+        B = np.identity(n_samples) / sigma_squared
         for i in range(n_samples + 1):
             basis = K[:, i]
             # Using the Woodbury Identity, we obtain Eq. 24 and 25 from [1]
             tmp_1 = basis.T @ B
             tmp_2 = tmp_1 @ Phi @ Sigma @ Phi.T @ B
-            Q[i] = tmp_1 @ y - tmp_2 @ y
+
             S[i] = tmp_1 @ basis - tmp_2 @ basis
+            Q[i] = tmp_1 @ y - tmp_2 @ y
 
         denominator = (alpha_values - S)
         s = (alpha_values * S) / denominator
         q = (alpha_values * Q) / denominator
 
-        # Create queue with indices to select candidates for update
-        queue = deque([i for i in range(n_samples + 1)])
-
         # Start updating the model iteratively
+        # Create queue with indices to select candidates for update
+        queue = deque(list(range(n_samples + 1)))
         for epoch in range(self.max_iter):
             # 4. Pick a candidate basis vector from the start of the queue and put it at the end
             basis_idx = queue.popleft()
@@ -185,44 +186,37 @@ class RVR(BaseRVM, RegressorMixin):
             # 5. Compute theta
             theta = q ** 2 - s
 
-            next_alpha_values = np.copy(alpha_values)
-            next_included_cond = np.copy(included_cond)
+            current_alpha_values = np.copy(alpha_values)
+            current_included_cond = np.copy(included_cond)
 
-            if theta[basis_idx] > 0 and alpha_values[basis_idx] < INFINITY:
-                # 6. Re-estimate alpha
-                next_alpha_values[basis_idx] = s[basis_idx] ** 2 / (q[basis_idx] ** 2 - s[basis_idx])
+            # 6. Re-estimate included alpha
+            if theta[basis_idx] > 0 and current_alpha_values[basis_idx] < INFINITY:
+                alpha_values[basis_idx] = s[basis_idx] ** 2 / (q[basis_idx] ** 2 - s[basis_idx])
 
-            elif theta[basis_idx] > 0 and alpha_values[basis_idx] >= INFINITY:
-                # 7. Add basis function to the model with updated alpha
-                next_alpha_values[basis_idx] = s[basis_idx] ** 2 / (q[basis_idx] ** 2 - s[basis_idx])
-                next_included_cond[basis_idx] = True
+            # 7. Add basis function to the model with updated alpha
+            elif theta[basis_idx] > 0 and current_alpha_values[basis_idx] >= INFINITY:
+                alpha_values[basis_idx] = s[basis_idx] ** 2 / (q[basis_idx] ** 2 - s[basis_idx])
+                included_cond[basis_idx] = True
 
-            elif theta[basis_idx] <= 0 and alpha_values[basis_idx] < INFINITY:
-                # 8. Delete theta basis function from model and set alpha to infinity
-                next_alpha_values[basis_idx] = INFINITY
-                next_included_cond[basis_idx] = False
+            # 8. Delete theta basis function from model and set alpha to infinity
+            elif theta[basis_idx] <= 0 and current_alpha_values[basis_idx] < INFINITY:
+                alpha_values[basis_idx] = INFINITY
+                included_cond[basis_idx] = False
 
             # 9. Estimate noise level
-            # TODO: verify
-            gamma_values = 1 - np.multiply(alpha_values[included_cond], np.diag(Sigma))
-            next_sigma_squared = (np.linalg.norm(y - np.dot(Phi, mu)) ** 2) / (n_samples - np.sum(gamma_values))
+            # Format from the fast paper
+            y_pred = np.dot(Phi, mu)
+            sigma_squared = (np.linalg.norm(y - y_pred) ** 2) / \
+                            (n_samples - np.sum(included_cond) + np.sum(
+                                np.multiply(alpha_values[included_cond], np.diag(Sigma))))
 
-            # 11. Check for convergence
-            delta = next_alpha_values[included_cond] - alpha_values[included_cond]
-            not_included_cond = np.logical_not(included_cond)
-
-            # TODO: verify change order
-            # 10. Recompute/update  Sigma and mu as well as s and q
-            alpha_values = next_alpha_values
-            sigma_squared = next_sigma_squared
-            included_cond = next_included_cond
-
+            # 10. Recompute/update Sigma and mu as well as s and q
             A = np.diag(alpha_values[included_cond])
-            B = np.identity(n_samples) / sigma_squared
             Phi = K[:, included_cond]
+            B = np.identity(n_samples) / sigma_squared
 
             # Compute Sigma
-            tmp = Phi.T @ B @ Phi + A
+            tmp = A + (1 / sigma_squared) * Phi.T @ Phi
             if tmp.shape[0] == 1:
                 Sigma = 1 / tmp
             else:
@@ -232,9 +226,8 @@ class RVR(BaseRVM, RegressorMixin):
                     Sigma = np.linalg.pinv(tmp)
 
             # Compute mu
-            mu = Sigma @ Phi.T @ B @ y
+            mu = (1 / sigma_squared) * Sigma @ Phi.T @ y
 
-            # TODO: Deal with repeated code
             # Update s and q
             for i in range(n_samples + 1):
                 basis = K[:, i]
@@ -249,16 +242,18 @@ class RVR(BaseRVM, RegressorMixin):
             q = (alpha_values * Q) / denominator
 
             # 11. Check for convergence
-            # Check if algorithm has converged (variation of alpha and sigma)
-            if (np.sum(np.absolute(delta)) < self.tol) and all(th <= 0 for th in theta[not_included_cond]):
+            tol = 1e-6
+            delta = alpha_values[current_included_cond] - current_alpha_values[current_included_cond]
+            not_included_cond = np.logical_not(included_cond)
+            if (np.sum(np.absolute(delta)) < tol) and all(th <= 0 for th in theta[not_included_cond]):
                 break
 
-        # We store the relevance vectors and other important variables
         alpha_values = alpha_values[included_cond]
         X = X[included_cond[1:n_samples + 1]]
         y = y[included_cond[1:n_samples + 1]]
 
-        cond_sv = alpha_values < self.threshold_alpha
+        threshold_alpha = 1e5
+        cond_sv = alpha_values < threshold_alpha
         if alpha_values.shape[0] != X.shape[0]:
             self.X_sv_ = X[cond_sv[1:n_samples + 1]]
             self.Y_sv_ = y[cond_sv[1:n_samples + 1]]
@@ -267,8 +262,8 @@ class RVR(BaseRVM, RegressorMixin):
             self.Y_sv_ = y[cond_sv]
 
         self.mu_ = mu[cond_sv]
-        self.Sigma = Sigma[cond_sv][:, cond_sv]
-        self.sigma_squared = sigma_squared
+        self.Sigma_ = Sigma[cond_sv][:, cond_sv]
+        self.sigma_squared_ = sigma_squared
 
     def predict(self, X):
         # Check is fit had been called
@@ -276,7 +271,7 @@ class RVR(BaseRVM, RegressorMixin):
 
         X = check_array(X)
 
-        n_samples, n_features = X.shape
+        n_samples = X.shape[0]
         K = self._get_kernel(X, self.X_sv_)
         N_sv = np.shape(self.X_sv_)[0]
         if np.shape(self.mu_)[0] != N_sv:
