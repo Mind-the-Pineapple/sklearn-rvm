@@ -69,12 +69,55 @@ class RVR(BaseRVM, RegressorMixin):
 
     Parameters
     ----------
+    kernel : string, optional (default='rbf')
+         Specifies the kernel type to be used in the algorithm.
+         It must be one of 'linear', 'poly', 'rbf' or 'sigmoid'.
+         If none is given, 'rbf' will be used.
+
+    degree : int, optional (default=3)
+        Degree of the polynomial kernel function ('poly').
+        Ignored by all other kernels.
+
+    gamma : float, optional (default='auto')
+        Kernel coefficient for 'rbf', 'poly' and 'sigmoid'.
+
+        Current default is 'auto' which uses 1 / n_features,
+        if ``gamma='scale'`` is passed then it uses 1 / (n_features * X.var())
+        as value of gamma. The current default of gamma, 'auto', will change
+        to 'scale' in version 0.22. 'auto_deprecated', a deprecated version of
+        'auto' is used as a default indicating that no explicit value of gamma
+        was passed.
+
+    tol : float, optional (default=1e-6)
+        Tolerance for stopping criterion.
+
+    coef0 : float, optional (default=0.0)
+        Independent term in kernel function.
+        It is only significant in 'poly' and 'sigmoid'.
+
+    threshold_alpha:
+
+    max_iter : int, optional (default=5000)
+        Hard limit on iterations within solver.
+
+    verbose : integer
+        Controls the verbosity: the higher, the more messages.
+
+    Attributes
+    ----------
 
     Examples
     --------
+
+    Notes
+    -----
+    **References:**
+    `Fast Marginal Likelihood Maximisation forSparse Bayesian Models
+    <http://www.miketipping.com/papers/met-fastsbl.pdf>`__
     """
 
-    def __init__(self, kernel='rbf', degree=3, gamma='auto_deprecated', coef0=0.0, tol=1e-6, threshold_alpha=1e5,
+    def __init__(self, kernel='rbf', degree=3, gamma='auto_deprecated', coef0=0.0,
+                 tol=1e-6, threshold_alpha=1e5,
                  max_iter=5000, verbose=False):
 
         super().__init__(
