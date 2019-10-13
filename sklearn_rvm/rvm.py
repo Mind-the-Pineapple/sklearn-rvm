@@ -6,8 +6,10 @@ Relevance vector machine.
 # License: BSD 3 clause
 from abc import ABCMeta, abstractmethod
 from collections import deque
+import math
 
 import numpy as np
+from numpy import linalg
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.utils.validation import check_X_y, check_is_fitted, check_array
 from sklearn.metrics.pairwise import pairwise_kernels
@@ -91,8 +93,8 @@ class RVR(BaseRVM, RegressorMixin):
     max_iter : int, optional (default=5000)
         Hard limit on iterations within solver.
 
-    verbose : integer
-        Controls the verbosity: the higher, the more messages.
+    verbose : bool
+        Print message to stdin if True
 
     Attributes
     ----------
@@ -126,21 +128,42 @@ class RVR(BaseRVM, RegressorMixin):
             tol=tol, threshold_alpha=threshold_alpha,
             max_iter=max_iter, verbose=verbose, class_weight=None, random_state=None)
 
-    def _calculate_statistics(self, K, alpha_values, included_cond, y, sigma_squared):
-        """TODO: Add documentation"""
+    def _calculate_statistics(self, K, alpha, used_cond, y, sigma_squared):
+        """TODO: Add documentation
+
+        Parameters
+        ----------
+        K:
+            Kernel matrix.
+        alpha:
+            Vector of weight precision values
+        used_cond:
+        y:
+            Target vector.
+        sigma_squared:
+            Noise precision.
+
+        Returns
+        -------
+        Sigma:
+        mu:
+        s:
+        q:
+        Phi:
+        """
         n_samples = y.shape[0]
 
-        A = np.diag(alpha_values[included_cond])
-        Phi = K[:, included_cond]
+        A = np.diag(alpha[used_cond])
+        Phi = K[:, used_cond]
 
         tmp = A + (1 / sigma_squared) * Phi.T @ Phi
         if tmp.shape[0] == 1:
             Sigma = 1 / tmp
         else:
             try:
-                Sigma = np.linalg.inv(tmp)
-            except np.linalg.LinAlgError:
-                Sigma = np.linalg.pinv(tmp)
+                Sigma = linalg.inv(tmp)
+            except linalg.LinAlgError:
+                Sigma = linalg.pinv(tmp)
 
         mu = (1 / sigma_squared) * Sigma @ Phi.T @ y
 
@@ -150,20 +173,33 @@ class RVR(BaseRVM, RegressorMixin):
         B = np.identity(n_samples) / sigma_squared
         for i in range(n_samples + 1):
             basis = K[:, i]
+
             # Using the Woodbury Identity, we obtain Eq. 24 and 25 from [1]
             tmp_1 = basis.T @ B
             tmp_2 = tmp_1 @ Phi @ Sigma @ Phi.T @ B
             Q[i] = tmp_1 @ y - tmp_2 @ y
             S[i] = tmp_1 @ basis - tmp_2 @ basis
 
-        denominator = (alpha_values - S)
-        s = (alpha_values * S) / denominator
-        q = (alpha_values * Q) / denominator
+        s = (alpha * S) / (alpha - S)
+        q = (alpha * Q) / (alpha - S)
 
         return Sigma, mu, s, q, Phi
 
     def fit(self, X, y):
-        """TODO: Add documentation"""
+        """Fit the SVM model according to the given training data.
+        Parameters
+        ----------
+        X : array-like, shape (n_samples, n_features)
+            Training vectors, where n_samples is the number of samples
+            and n_features is the number of features.
+        y : array-like, shape (n_samples,)
+            Target values (class labels in classification, real numbers in
+            regression)
+        Returns
+        -------
+        self : object
+        """
+        # TODO: Add sample_weight?
         # TODO: Add fit_intercept (With and without bias)
         # TODO: Add fixed sigma_squared
 
@@ -171,90 +207,133 @@ class RVR(BaseRVM, RegressorMixin):
 
         n_samples = X.shape[0]
         K = pairwise_kernels(X, metric='linear', filter_params=True)
+
+        # Add bias (intercept)
         K = np.hstack((np.ones((n_samples, 1)), K))
 
         # 1. Initialize the sigma squared value
         sigma_squared = np.var(y) * 0.1
 
         # 2. Initialize one alpha value and set all the others to infinity.
-        alpha_values = np.zeros(n_samples + 1) + INFINITY
-        included_cond = np.zeros(n_samples + 1, dtype=bool)
+        alpha = INFINITY * np.ones(n_samples + 1)
+        used_cond = np.zeros_like(alpha, dtype=bool)
 
-        selected_basis = 0
-        basis_column = K[:, selected_basis]
-        phi_norm_squared = np.linalg.norm(basis_column) ** 2
-        alpha_values[selected_basis] = phi_norm_squared / \
-                                       ((np.linalg.norm((basis_column @ y)) ** 2) / phi_norm_squared - sigma_squared)
-
-        included_cond[selected_basis] = True
+        # As suggested in the paper, select bias to be the initial basis
+        basis_idx = 0
+        basis = K[:, basis_idx]
+        basis_norm = linalg.norm(basis)
+        alpha[basis_idx] = basis_norm ** 2 / ((linalg.norm(basis @ y) ** 2) / basis_norm ** 2 - sigma_squared)
+        used_cond[basis_idx] = True
 
         # 3. Initialize Sigma and mu, and q and s for all bases
-        Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha_values, included_cond, y, sigma_squared)
+        Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha, used_cond, y, sigma_squared)
 
-        # Start updating the model iteratively
         # Create queue with indices to select candidates for update
         queue = deque(list(range(n_samples + 1)))
-        for epoch in range(self.max_iter):
+
+        # Start updating the model iteratively
+        for iter in range(self.max_iter):
+            if self.verbose:
+                print('Iteration: {}'.format(iter))
             # 4. Pick a candidate basis vector from the start of the queue and put it at the end
             basis_idx = queue.popleft()
             queue.append(basis_idx)
 
+            old_alpha = np.copy(alpha)
+            old_used_cond = np.copy(used_cond)
+
+            reestimate_action = False
+
             # 5. Compute theta
             theta = q ** 2 - s
 
-            current_alpha_values = np.copy(alpha_values)
-            current_included_cond = np.copy(included_cond)
-
-            # 6. Re-estimate included alpha
-            if theta[basis_idx] > 0 and current_alpha_values[basis_idx] < INFINITY:
-                alpha_values[basis_idx] = s[basis_idx] ** 2 / (q[basis_idx] ** 2 - s[basis_idx])
+            # 6. Re-estimate alpha
+            if theta[basis_idx] > 0 and alpha[basis_idx] < INFINITY:
+                alpha[basis_idx] = s[basis_idx] ** 2 / (q[basis_idx] ** 2 - s[basis_idx])
+                reestimate_action = True
 
             # 7. Add basis function to the model with updated alpha
-            elif theta[basis_idx] > 0 and current_alpha_values[basis_idx] >= INFINITY:
-                alpha_values[basis_idx] = s[basis_idx] ** 2 / (q[basis_idx] ** 2 - s[basis_idx])
-                included_cond[basis_idx] = True
+            elif theta[basis_idx] > 0 and alpha[basis_idx] >= INFINITY:
+                alpha[basis_idx] = s[basis_idx] ** 2 / (q[basis_idx] ** 2 - s[basis_idx])
+                used_cond[basis_idx] = True
 
             # 8. Delete theta basis function from model and set alpha to infinity
-            elif theta[basis_idx] <= 0 and current_alpha_values[basis_idx] < INFINITY:
-                alpha_values[basis_idx] = INFINITY
-                included_cond[basis_idx] = False
+            # TODO: prevent bias to be deleted
+            elif theta[basis_idx] <= 0 and alpha[basis_idx] < INFINITY:
+                alpha[basis_idx] = INFINITY
+                used_cond[basis_idx] = False
 
             # 9. Estimate noise level
-            # Format from the fast paper
-            # TODO: Fix bug here
+            # Using format from the fast algorihm paper
+            # TODO: Figure out how to calculate sigma from new alpha and Sigma (according to original code)
             y_pred = np.dot(Phi, mu)
-            sigma_squared = (np.linalg.norm(y - y_pred) ** 2) / \
-                            (n_samples - np.sum(included_cond) + np.sum(
-                                np.multiply(alpha_values[included_cond], np.diag(Sigma))))
+            sigma_squared = (linalg.norm(y - y_pred) ** 2) / \
+                            (n_samples - np.sum(old_used_cond) + np.sum(
+                                np.multiply(old_alpha[old_used_cond], np.diag(Sigma))))
 
             # 10. Recompute/update Sigma and mu as well as s and q
-            Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha_values, included_cond, y, sigma_squared)
+            Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha, used_cond, y, sigma_squared)
 
             # 11. Check for convergence
-            delta = alpha_values[current_included_cond] - current_alpha_values[current_included_cond]
-            not_included_cond = np.logical_not(included_cond)
-            if (np.sum(np.absolute(delta)) < self.tol) and all(th <= 0 for th in theta[not_included_cond]):
+            delta = math.log(alpha[basis_idx]) - math.log(old_alpha[basis_idx])
+
+            if self.verbose:
+                print('alpha: {}'.format(alpha))
+                print('sigma_squared: {}'.format(sigma_squared))
+                print('SIGMA:')
+                print(Sigma)
+                print('mu:')
+                print(mu)
+                print('theta: {}'.format(theta))
+                print('delta: {}'.format(delta))
+                print('Re-estimation: {}'.format(reestimate_action))
+
+            not_used_cond = np.logical_not(old_used_cond)
+            if reestimate_action and delta < self.tol and all(th <= 0 for th in theta[not_used_cond]):
                 break
 
         # TODO: Review this part
-        alpha_values = alpha_values[included_cond]
-        X = X[included_cond[1:n_samples + 1]]
+        alpha_bias = alpha[0]
+        alpha_basis = alpha[1:]
 
-        cond_rv = alpha_values < self.threshold_alpha
-        if alpha_values.shape[0] != X.shape[0]:
-            self.relevance_vectors_ = X[cond_rv[1:n_samples + 1]]
-        else:
-            self.relevance_vectors_ = X[cond_rv]
+        alpha_basis = alpha_basis[used_cond[1:]]
+        X_rv = X[used_cond[1:]]
 
-        self.mu_ = mu[cond_rv]
-        self.coef_ = self.mu_
-        self.Sigma_ = Sigma[cond_rv][:, cond_rv]
+        cond_bias_rv = alpha_bias < self.threshold_alpha
+        cond_basis_rv = alpha_basis < self.threshold_alpha
+
+        self.relevance_vectors_ = X_rv[cond_basis_rv]
+
+        selected_basis = np.concatenate(([cond_bias_rv], cond_basis_rv))
+
+        self.mu_ = mu[selected_basis]
+        self.Sigma_ = Sigma[selected_basis][:, selected_basis]
         self.sigma_squared_ = sigma_squared
 
-    def predict(self, X):
-        """TODO: Add documentation"""
+    def predict(self, X, return_std=False):
+        """Predict using the linear model.
+
+        In addition to the mean of the predictive distribution, also its
+        standard deviation can be returned.
+
+        X : array-like, shape = (n_samples, n_features)
+            Query points where the GP is evaluated
+
+        return_std : bool, default: False
+            If True, the standard-deviation of the predictive distribution at
+            the query points is returned along with the mean.
+
+        Returns
+        -------
+        y_mean : array, shape = (n_samples, [n_output_dims])
+            Mean of predictive distribution a query points
+
+        y_std : array, shape = (n_samples,), optional
+            Standard deviation of predictive distribution at query points.
+            Only returned when return_std is True.
+        """
         # Check is fit had been called
-        check_is_fitted(self, ['relevance_vectors_', 'mu_'])
+        check_is_fitted(self, ['relevance_vectors_', 'mu_', 'Sigma_', 'sigma_squared'])
 
         X = check_array(X)
 
@@ -263,8 +342,13 @@ class RVR(BaseRVM, RegressorMixin):
         N_rv = np.shape(self.relevance_vectors_)[0]
         if np.shape(self.mu_)[0] != N_rv:
             K = np.hstack((np.ones((n_samples, 1)), K))
-        y = K.dot(self.mu_)
-        return y
+        y_mean = np.dot(K, self.mu_)
+        if return_std is False:
+            return y_mean
+        else:
+            err_var = self.sigma_squared + K @ self.Sigma @ K.T
+            y_std = np.sqrt(np.diag(err_var))
+            return y_mean, y_std
 
 
 class RVC(BaseRVM, ClassifierMixin):
