@@ -209,6 +209,7 @@ class RVR(BaseRVM, RegressorMixin):
         X, y = check_X_y(X, y, y_numeric=True, ensure_min_samples=2)
 
         n_samples = X.shape[0]
+        # TODO: fix Gamma
         K = self._get_kernel(X)
 
         # Add bias (intercept)
