@@ -8,14 +8,20 @@ Linear Regression Example
 This example uses the only the first feature of the `diabetes` dataset, in
 order to illustrate a two-dimensional plot of this regression technique.
 The coefficients, the residual sum of squares and the coefficient
-of determination are also calculated.
+of determination are also calculated. An example plot of
+:class:`sklearn_rvm.rvm.RVR`
+
 """
 print(__doc__)
 
+# Authors: X
+# License: BSD 3 clause
+
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn import datasets, linear_model
+from sklearn import datasets
 from sklearn.metrics import mean_squared_error, r2_score
+from sklearn_rvm import RVR
 
 # Load the diabetes dataset
 diabetes_X, diabetes_y = datasets.load_diabetes(return_X_y=True)
@@ -31,8 +37,8 @@ diabetes_X_test = diabetes_X[-20:]
 diabetes_y_train = diabetes_y[:-20]
 diabetes_y_test = diabetes_y[-20:]
 
-# Create linear regression object
-regr = linear_model.LinearRegression()
+# Create regression object
+regr = RVR('linear')
 
 # Train the model using the training sets
 regr.fit(diabetes_X_train, diabetes_y_train)
