@@ -2,13 +2,10 @@ import pytest
 
 from sklearn.utils.estimator_checks import check_estimator
 
-from skltemplate import TemplateEstimator
-from skltemplate import TemplateClassifier
-from skltemplate import TemplateTransformer
-
+from sklearn_rvm import RVR, RVC
 
 @pytest.mark.parametrize(
-    "Estimator", [TemplateEstimator, TemplateTransformer, TemplateClassifier]
+    "Estimator", [RVR, RVC]
 )
 def test_all_estimators(Estimator):
     return check_estimator(Estimator)
