@@ -306,8 +306,6 @@ class RVR(BaseRVM, RegressorMixin):
             # 10. Recompute/update Sigma and mu as well as s and q
             Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha, used_cond, y, sigma_squared)
 
-
-
         # TODO: Review this part
         alpha_bias = alpha[0]
         alpha_basis = alpha[1:]
