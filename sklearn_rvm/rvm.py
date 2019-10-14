@@ -206,13 +206,14 @@ class RVR(BaseRVM, RegressorMixin):
         X, y = check_X_y(X, y, y_numeric=True, ensure_min_samples=2)
 
         n_samples = X.shape[0]
-        K = pairwise_kernels(X, metric='linear', filter_params=True)
+        K = self._get_kernel(X)
 
         # Add bias (intercept)
         K = np.hstack((np.ones((n_samples, 1)), K))
 
         # 1. Initialize the sigma squared value
-        sigma_squared = np.var(y) * 0.1
+        # According to original code
+        sigma_squared = (np.max(1e-6, np.std(y)) ** 2) * 0.1
 
         # 2. Initialize one alpha value and set all the others to infinity.
         alpha = INFINITY * np.ones(n_samples + 1)
@@ -263,18 +264,8 @@ class RVR(BaseRVM, RegressorMixin):
                 alpha[basis_idx] = INFINITY
                 used_cond[basis_idx] = False
 
-            # 9. Estimate noise level
-            # Using format from the fast algorihm paper
-            # TODO: Figure out how to calculate sigma from new alpha and Sigma (according to original code)
-            y_pred = np.dot(Phi, mu)
-            sigma_squared = (linalg.norm(y - y_pred) ** 2) / \
-                            (n_samples - np.sum(old_used_cond) + np.sum(
-                                np.multiply(old_alpha[old_used_cond], np.diag(Sigma))))
-
-            # 10. Recompute/update Sigma and mu as well as s and q
-            Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha, used_cond, y, sigma_squared)
-
             # 11. Check for convergence
+            # According to the original code, step 11 is placed here.
             delta = math.log(alpha[basis_idx]) - math.log(old_alpha[basis_idx])
 
             if self.verbose:
@@ -291,6 +282,31 @@ class RVR(BaseRVM, RegressorMixin):
             not_used_cond = np.logical_not(old_used_cond)
             if reestimate_action and delta < self.tol and all(th <= 0 for th in theta[not_used_cond]):
                 break
+
+            # 9. Estimate noise level
+            # Using updated Sigma and mu
+            A = np.diag(alpha[used_cond])
+            Phi = K[:, used_cond]
+            tmp = A + (1 / sigma_squared) * Phi.T @ Phi
+            if tmp.shape[0] == 1:
+                Sigma = 1 / tmp
+            else:
+                try:
+                    Sigma = linalg.inv(tmp)
+                except linalg.LinAlgError:
+                    Sigma = linalg.pinv(tmp)
+            mu = (1 / sigma_squared) * Sigma @ Phi.T @ y
+
+            # Using format from the fast algorithm paper
+            y_pred = np.dot(Phi, mu)
+            sigma_squared = (linalg.norm(y - y_pred) ** 2) / \
+                            (n_samples - np.sum(used_cond) + np.sum(
+                                np.multiply(alpha[used_cond], np.diag(Sigma))))
+
+            # 10. Recompute/update Sigma and mu as well as s and q
+            Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha, used_cond, y, sigma_squared)
+
+
 
         # TODO: Review this part
         alpha_bias = alpha[0]
