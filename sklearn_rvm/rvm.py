@@ -104,6 +104,9 @@ class RVR(BaseRVM, RegressorMixin):
     relevance_vectors_ : array-like, shape = [n_relevance, n_features]
         Relevance vectors (equivalent to X[relevance_]).
 
+    dual_coef_ : array, shape = [1, n_SV]
+        Coefficients of the relevance vector in the decision function.
+
     coef_ : array, shape = [1, n_features]
         Weights assigned to the features (coefficients in the primal
         problem). This is only available in the case of a linear kernel.
@@ -210,6 +213,7 @@ class RVR(BaseRVM, RegressorMixin):
 
         # Add bias (intercept)
         K = np.hstack((np.ones((n_samples, 1)), K))
+        # TODO: Preprocess basis to have unit norm (Like tipping code)
 
         # 1. Initialize the sigma squared value
         # According to original code
@@ -319,7 +323,10 @@ class RVR(BaseRVM, RegressorMixin):
         relevant_cond = alpha_used < self.threshold_alpha
 
         self.mu_ = mu[relevant_cond]
-        self.coef_ = mu[relevant_cond]
+        # TODO: Verify if bias is included in coef_
+        self.coef_ = np.dot(self.mu_[1:], self.relevance_vectors_)
+        self.dual_coef_ = self.mu_[1:]
+
         self.Sigma_ = Sigma[relevant_cond][:, relevant_cond]
         self.sigma_squared_ = sigma_squared
 
