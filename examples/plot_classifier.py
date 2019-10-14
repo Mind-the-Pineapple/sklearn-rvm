@@ -1,7 +1,7 @@
 """
-============================
-Plotting Template Classifier
-============================
+=========================
+Linear Regression Example
+=========================
 
 An example plot of :class:`sklearn-svm.template.TemplateClassifier`
 """
