@@ -309,22 +309,18 @@ class RVR(BaseRVM, RegressorMixin):
             Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha, used_cond, y, sigma_squared)
 
         # TODO: Review this part
-        alpha_bias = alpha[0]
-        alpha_basis = alpha[1:]
+        relevant = alpha < self.threshold_alpha
+        relevant = relevant * used_cond
 
-        alpha_basis = alpha_basis[used_cond[1:]]
-        X_rv = X[used_cond[1:]]
+        self.relevance_ = np.array(list(range(len(relevant[1:]))))[relevant[1:]]
+        self.relevance_vectors_ = X[self.relevance_]
 
-        cond_bias_rv = alpha_bias < self.threshold_alpha
-        cond_basis_rv = alpha_basis < self.threshold_alpha
+        alpha_used = alpha[used_cond]
+        relevant_cond = alpha_used < self.threshold_alpha
 
-        self.relevance_vectors_ = X_rv[cond_basis_rv]
-
-        selected_basis = np.concatenate(([cond_bias_rv], cond_basis_rv))
-
-        self.mu_ = mu[selected_basis]
-        self.coef_ = mu[selected_basis]
-        self.Sigma_ = Sigma[selected_basis][:, selected_basis]
+        self.mu_ = mu[relevant_cond]
+        self.coef_ = mu[relevant_cond]
+        self.Sigma_ = Sigma[relevant_cond][:, relevant_cond]
         self.sigma_squared_ = sigma_squared
 
     def predict(self, X, return_std=False):
