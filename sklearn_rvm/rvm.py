@@ -259,8 +259,10 @@ class RVR(BaseRVM, RegressorMixin):
                 used_cond[basis_idx] = True
 
             # 8. Delete theta basis function from model and set alpha to infinity
-            # TODO: prevent bias to be deleted
             elif theta[basis_idx] <= 0 and alpha[basis_idx] < INFINITY:
+                # Prevent bias to be deleted
+                if basis_idx == 0:
+                    continue
                 alpha[basis_idx] = INFINITY
                 used_cond[basis_idx] = False
 
