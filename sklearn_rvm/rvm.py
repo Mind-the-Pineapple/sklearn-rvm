@@ -363,7 +363,7 @@ class RVR(BaseRVM, RegressorMixin):
         if return_std is False:
             return y_mean
         else:
-            err_var = self.sigma_squared + K @ self.Sigma @ K.T
+            err_var = self.sigma_squared_ + K @ self.Sigma_ @ K.T
             y_std = np.sqrt(np.diag(err_var))
             return y_mean, y_std
 
