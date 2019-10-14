@@ -213,7 +213,7 @@ class RVR(BaseRVM, RegressorMixin):
 
         # 1. Initialize the sigma squared value
         # According to original code
-        sigma_squared = (np.max(1e-6, np.std(y)) ** 2) * 0.1
+        sigma_squared = (max(1e-6, np.std(y)) ** 2) * 0.1
 
         # 2. Initialize one alpha value and set all the others to infinity.
         alpha = INFINITY * np.ones(n_samples + 1)
@@ -323,6 +323,7 @@ class RVR(BaseRVM, RegressorMixin):
         selected_basis = np.concatenate(([cond_bias_rv], cond_basis_rv))
 
         self.mu_ = mu[selected_basis]
+        self.coef_ = mu[selected_basis]
         self.Sigma_ = Sigma[selected_basis][:, selected_basis]
         self.sigma_squared_ = sigma_squared
 
@@ -349,7 +350,7 @@ class RVR(BaseRVM, RegressorMixin):
             Only returned when return_std is True.
         """
         # Check is fit had been called
-        check_is_fitted(self, ['relevance_vectors_', 'mu_', 'Sigma_', 'sigma_squared'])
+        check_is_fitted(self, ['relevance_vectors_', 'mu_', 'Sigma_', 'sigma_squared_'])
 
         X = check_array(X)
 
