@@ -205,6 +205,7 @@ class RVR(BaseRVM, RegressorMixin):
         # TODO: Add sample_weight?
         # TODO: Add fit_intercept (With and without bias)
         # TODO: Add fixed sigma_squared
+        # TODO: Add compute_score similar to sklearn.linear_model.ARDRegression
 
         X, y = check_X_y(X, y, y_numeric=True, ensure_min_samples=2)
 
