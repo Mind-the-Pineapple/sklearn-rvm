@@ -11,6 +11,7 @@ import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.utils.validation import check_X_y, check_is_fitted, check_array
 from sklearn.metrics.pairwise import pairwise_kernels
+from scipy.special import expit # check if we want to impor tmore stuff
 
 INFINITY = 1e20
 
@@ -328,6 +329,9 @@ class RVC(BaseRVM, ClassifierMixin):
     `Fast Marginal Likelihood Maximisation for Sparse Bayesian Models
     <http://www.miketipping.com/papers/met-fastsbl.pdf>`__
     """
+    
+    STEP_MIN = 1/2e8
+    GRAD_MIN = 1e-6
 
     def __init__(self, kernel='rbf', degree=3, gamma='auto_deprecated', coef0=0.0,
                  tol=1e-6, threshold_alpha=1e5,
@@ -392,15 +396,17 @@ class RVC(BaseRVM, ClassifierMixin):
         #sigma_squared = np.var(y) * 0.1
 
         # 2. Initialize one alpha value and set all the others to infinity.
+        # Initialize mu.
         alpha_values = np.zeros(n_samples + 1) + INFINITY
         included_cond = np.zeros(n_samples + 1, dtype=bool)
 
         selected_basis = 0
-        basis_column = K[:, selected_basis] # basis vector maybe?
-        phi_norm_squared = np.linalg.norm(basis_column) ** 2
-        alpha_values[selected_basis] = phi_norm_squared / \
-                                       ((np.linalg.norm((basis_column @ y)) ** 2) / phi_norm_squared - sigma_squared)
-                                       # Cant use sigma squared
+        Phi = K[:, selected_basis] 
+        t_hat = 2*y - 1 # PseudoLinear Target {-1.1}
+        logout = (t_hat*0.9 + 1) / 2
+        mu = np.linalg.lstsq(Phi, np.log(logout/(1-logout))) # least squares solution. np.log or math.log?
+        mask_mu = mu == 0 # incorrect. How to make this?
+        alpha_values[selected_basis] = 1 / (mu + mu[mask_mu])**2
 
         included_cond[selected_basis] = True
 
@@ -469,24 +475,28 @@ class RVC(BaseRVM, ClassifierMixin):
 
     # TODO: Check initialization of basis_vectors (4.1)
     # Selection can be random or calculate alpha and theta for all basis with more computational effort
-    def predict(self, X):
+    def predict(self, prob):
         """TODO: Add documentation"""
-
-        X = check_array(X)
-        prob   = self.predict_proba(X)
-        indices = np.argmax(prob, axis = 1)
-        y = self.classes_[indices]
-
-        return y
+        return expit(prob)
 
     def predict_proba(self, X): # SCHUMIK line 672
         """TODO: Add documentation"""
         check_is_fitted(self, ['relevance_vectors_', 'mu_'])
+        X = check_array(X)
+
+        n_samples = X.shape[0]
+        K = self._get_kernel(X, self.relevance_vectors_)
+        N_rv = np.shape(self.relevance_vectors_)[0]
+        if np.shape(self.mu_)[0] != N_rv:
+            K = np.hstack((np.ones((n_samples, 1)), K))
+        prob = K.dot(self.mu_)
 
         #normalize?
         #var = np.sum(np.dot(X,self.sigma)*X,1)
         #ks  = 1. / ( 1. + np.pi * var/ 8)**0.5
         #prob  = expit(y_hat * ks)
         #return prob
-        pass
+        return prob
 
+     def compute_pred(self, Phi, mu): # to be replaced in the future
+        return np.dot(Phi, mu)
