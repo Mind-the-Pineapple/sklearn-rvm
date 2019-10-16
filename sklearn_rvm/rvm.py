@@ -14,6 +14,7 @@ from sklearn.metrics.pairwise import pairwise_kernels
 from scipy.special import expit # check if we want to impor tmore stuff
 
 INFINITY = 1e20
+EPSILON = 1e-9
 
 
 class BaseRVM(BaseEstimator, metaclass=ABCMeta):
@@ -332,6 +333,7 @@ class RVC(BaseRVM, ClassifierMixin):
     
     STEP_MIN = 1/2e8
     GRAD_MIN = 1e-6
+    MAX_ITS = 100 # how to allow to change this?
 
     def __init__(self, kernel='rbf', degree=3, gamma='auto_deprecated', coef0=0.0,
                  tol=1e-6, threshold_alpha=1e5,
@@ -342,12 +344,90 @@ class RVC(BaseRVM, ClassifierMixin):
             tol=tol, threshold_alpha=threshold_alpha,
             max_iter=max_iter, verbose=verbose, class_weight=None, random_state=None)
 
-    def _calculate_statistics(self, K, alpha_values, included_cond, y, sigma):
+    def _calculate_statistics(self, K, alpha_values, included_cond, y, mu_mp):
         """TODO: Add documentation"""
         n_samples = y.shape[0]
+        error_log = []
 
         A = np.diag(alpha_values[included_cond])
-        Phi = K[:, included_cond]
+        Phi = K[:, included_cond] # e o bias?
+        M = Phi.shape[1]
+
+        def DataErr(self, Phi, mu_mp, y):
+            t_hat = np.expit(Phi @ mu_mp) # prediction of the output. Change? might be confusing
+            t_hat0 = t_hat == 0
+            t_hat1 = t_hat == 1
+
+            if any(t_hat0[y>0] || any(t_hat1[y<1])):
+                data_err = INFINITY
+            else:
+                # error is calculated through cross-entropy
+                data_err = - np.sum(y*np.log(t_hat+EPSILON)) #TODO: shouldnt I divide by n_trials?
+            return t_hat, data_err
+
+        t_hat, data_err = DataErr(Phi, mu_mp, y)
+        reg = A.T @ mu_mp**2 / 2
+        total_err = data_err + reg
+        error_log.append(total_err) # Check if cant be scalar
+
+        for i in range(MAX_ITS):
+            # Calculate the error of predictions and its gradient
+            e = y - t_hat
+            g = Phi.T @ e - A @ mu_mp
+            # Calculate B - likelihoood dependent analogue of the noise precision 
+            B = t_hat * (1-t_hat) # call it B?
+
+            # Compute the Hessian
+            tmp = Phi * (B * np.ones(1, M))
+            H = tmp.T @ Phi + A
+            # Invert Hessian via Cholesky - lower triangular Cholesky factor of H.
+            # Must be positive definite. Check exception
+            U = np.linalg.cholesky(H)
+
+            # Check for termination based on the Gradient
+            if all(abs(g))<GRAD_MIN:
+                break
+
+            # Calculate Newton Step: H^-1 * g
+            delta_mu = np.linalg.lstsq(U, np.linalg.lstsq(U.T, g))
+            step = 1
+
+            while step<STEP_MIN:
+                mu_new = mu + step*delta_mu
+                tmp = Phi @ mu_new
+                t_hat, data_err = DataErr(Phi, mu_new, y)
+                reg = A.T @ mu_new**2 / 2
+                total_err = data_err + reg
+
+                # Check if error increased
+                if total_err >= error_log[-1]:
+                    step /= 2
+                else:
+                    mu_mp = mu_new
+                    step = 0 # to leave the while loop
+
+            # Compute covariance approximation
+            Ui = inv(U)
+            Sigma = Ui @ Ui.T
+
+            # Update s and q
+            # Check. Tippings implementation is different. Is it the same B?
+            Q = np.zeros(n_samples + 1)
+            S = np.zeros(n_samples + 1)
+            for i in range(n_samples + 1):
+                basis = K[:, i]
+                # Using the Woodbury Ident ity, we obtain Eq. 24 and 25 from [1]
+                tmp_1 = basis.T @ B
+                tmp_2 = tmp_1 @ Phi @ Sigma @ Phi.T @ B
+                Q[i] = tmp_1 @ y - tmp_2 @ y
+                S[i] = tmp_1 @ basis - tmp_2 @ basis
+
+            denominator = (alpha_values - S)
+            s = (alpha_values * S) / denominator
+            q = (alpha_values * Q) / denominator
+
+            return Sigma, mu_mp, s, q, Phi
+"""
 
         tmp = A + (1 / sigma_squared) * Phi.T @ Phi # = Phi.T @ B @ Phi + A (12)
         if tmp.shape[0] == 1:
@@ -368,7 +448,7 @@ class RVC(BaseRVM, ClassifierMixin):
         B = np.identity(n_samples) / sigma_squared # = np.diag(sigma(y(xn))* (1-sigam(y(xn))) (11)
         for i in range(n_samples + 1):
             basis = K[:, i]
-            # Using the Woodbury Identity, we obtain Eq. 24 and 25 from [1]
+            # Using the Woodbury Ident ity, we obtain Eq. 24 and 25 from [1]
             tmp_1 = basis.T @ B
             tmp_2 = tmp_1 @ Phi @ Sigma @ Phi.T @ B
             Q[i] = tmp_1 @ y - tmp_2 @ y
@@ -378,7 +458,7 @@ class RVC(BaseRVM, ClassifierMixin):
         s = (alpha_values * S) / denominator
         q = (alpha_values * Q) / denominator
 
-        return Sigma, mu_mp, s, q, Phi
+        return Sigma, mu_mp, s, q, Phi"""
 
     def fit(self, X, y):
         
@@ -404,14 +484,14 @@ class RVC(BaseRVM, ClassifierMixin):
         Phi = K[:, selected_basis] 
         t_hat = 2*y - 1 # PseudoLinear Target {-1.1}
         logout = (t_hat*0.9 + 1) / 2
-        mu = np.linalg.lstsq(Phi, np.log(logout/(1-logout))) # least squares solution. np.log or math.log?
-        mask_mu = mu == 0 # incorrect. How to make this?
+        mu = np.linalg.lstsq(Phi, np.log(logout/(1-logout))) # TODO: least squares solution. np.log or math.log?
+        mask_mu = mu == 0 # TODO: confirm if correct
         alpha_values[selected_basis] = 1 / (mu + mu[mask_mu])**2
 
         included_cond[selected_basis] = True
 
-        # 3. Initialize Sigma and mu, and q and s for all bases
-        Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha_values, included_cond, y, sigma)
+        # 3. Initialize Sigma, q and s for all bases
+        Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha_values, included_cond, y, mu)
 
         # Start updating the model iteratively
         # Create queue with indices to select candidates for update
