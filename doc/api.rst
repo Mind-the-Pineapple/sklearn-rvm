@@ -6,29 +6,20 @@ This is an example on how to document the API of your own project.
 
 .. currentmodule:: sklearn_rvm
 
-Estimator
-=========
+RVR
+===
 
 .. autosummary::
    :toctree: generated/
    :template: class.rst
 
-   TemplateEstimator
+   RVR
 
-Transformer
+RVC
 ===========
 
 .. autosummary::
    :toctree: generated/
    :template: class.rst
 
-   TemplateTransformer
-
-Predictor
-=========
-
-.. autosummary::
-   :toctree: generated/
-   :template: class.rst
-
-    TemplateClassifier
+   RVC
