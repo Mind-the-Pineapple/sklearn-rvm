@@ -358,7 +358,7 @@ class RVC(BaseRVM, ClassifierMixin):
             t_hat0 = t_hat == 0
             t_hat1 = t_hat == 1
 
-            if any(t_hat0[y>0] || any(t_hat1[y<1])):
+            if any(t_hat0[y>0] or any(t_hat1[y<1])):
                 data_err = INFINITY
             else:
                 # error is calculated through cross-entropy
@@ -427,7 +427,7 @@ class RVC(BaseRVM, ClassifierMixin):
             q = (alpha_values * Q) / denominator
 
             return Sigma, mu_mp, s, q, Phi
-"""
+            """
 
         tmp = A + (1 / sigma_squared) * Phi.T @ Phi # = Phi.T @ B @ Phi + A (12)
         if tmp.shape[0] == 1:
@@ -458,7 +458,8 @@ class RVC(BaseRVM, ClassifierMixin):
         s = (alpha_values * S) / denominator
         q = (alpha_values * Q) / denominator
 
-        return Sigma, mu_mp, s, q, Phi"""
+        return Sigma, mu_mp, s, q, Phi
+        """
 
     def fit(self, X, y):
         
@@ -577,6 +578,3 @@ class RVC(BaseRVM, ClassifierMixin):
         #prob  = expit(y_hat * ks)
         #return prob
         return prob
-
-     def compute_pred(self, Phi, mu): # to be replaced in the future
-        return np.dot(Phi, mu)
