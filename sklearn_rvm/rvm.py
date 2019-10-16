@@ -219,7 +219,7 @@ class RVR(BaseRVM, RegressorMixin):
 
         # 1. Initialize the sigma squared value
         # According to original code
-        sigma_squared = (max(1e-6, np.std(y)) ** 2) * 0.1
+        sigma_squared = (max(1e-6, np.std(y) * 0.1) ** 2)
 
         # 2. Initialize one alpha value and set all the others to infinity.
         alpha = INFINITY * np.ones(n_samples + 1)
