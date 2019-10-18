@@ -248,7 +248,7 @@ class RVR(BaseRVM, RegressorMixin):
             self._gamma = self.gamma
 
         n_samples = X.shape[0]
-        # TODO: fix Gamma
+
         K = self._get_kernel(X)
 
         # Add bias (intercept)
