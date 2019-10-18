@@ -27,13 +27,13 @@ y += 0.25 * (0.5 - rng.rand(X.shape[0]))  # add noise
 X = X[:, None]
 
 # Fit RVR
-svr = SVR(kernel='rbf', gamma=1)
+svr = SVR(kernel='rbf')
 stime = time.time()
 svr.fit(X, y)
 print("Time for SVR fitting: %.3f" % (time.time() - stime))
 
 # Fit RVR
-rvr = RVR(kernel='rbf', gamma=1)
+rvr = RVR(kernel='rbf')
 stime = time.time()
 rvr.fit(X, y)
 print("Time for RVR fitting: %.3f" % (time.time() - stime))

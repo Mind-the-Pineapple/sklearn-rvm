@@ -7,6 +7,7 @@ Relevance vector machine.
 from abc import ABCMeta, abstractmethod
 from collections import deque
 import math
+import warnings
 
 import numpy as np
 from numpy import linalg
@@ -50,7 +51,7 @@ class BaseRVM(BaseEstimator, metaclass=ABCMeta):
         if callable(self.kernel):
             params = self.kernel_params or {}
         else:
-            params = {"gamma": self.gamma,
+            params = {"gamma": self._gamma,
                       "degree": self.degree,
                       "coef0": self.coef0}
         return pairwise_kernels(X, Y, metric=self.kernel,
@@ -126,6 +127,11 @@ class RVR(BaseRVM, RegressorMixin):
                  tol=1e-6, threshold_alpha=1e5,
                  max_iter=5000, verbose=False):
 
+        if gamma == 0:
+            msg = ("The gamma value of 0.0 is invalid. Use 'auto' to set"
+                   " gamma to a value of 1 / n_features.")
+            raise ValueError(msg)
+
         super().__init__(
             kernel=kernel, degree=degree, gamma=gamma, coef0=coef0,
             tol=tol, threshold_alpha=threshold_alpha,
@@ -141,6 +147,7 @@ class RVR(BaseRVM, RegressorMixin):
         alpha:
             Vector of weight precision values
         used_cond:
+            Relevant basis vector indices
         y:
             Target vector.
         sigma_squared:
@@ -149,10 +156,15 @@ class RVR(BaseRVM, RegressorMixin):
         Returns
         -------
         Sigma:
+            Posterior covariance matrix for relevant bases
         mu:
+            Posterior mean
         s:
+            S-factors for all basis vectors
         q:
+            Q-factors for all basis vectors
         Phi:
+            Current relevant basis matrix
         """
         n_samples = y.shape[0]
 
@@ -208,6 +220,32 @@ class RVR(BaseRVM, RegressorMixin):
         # TODO: Add compute_score similar to sklearn.linear_model.ARDRegression
 
         X, y = check_X_y(X, y, y_numeric=True, ensure_min_samples=2)
+
+        if self.gamma in ('scale', 'auto_deprecated'):
+            X_var = X.var()
+            if self.gamma == 'scale':
+                if X_var != 0:
+                    self._gamma = 1.0 / (X.shape[1] * X_var)
+                else:
+                    self._gamma = 1.0
+            else:
+                kernel_uses_gamma = (not callable(self.kernel) and self.kernel
+                                     not in ('linear', 'precomputed'))
+                if kernel_uses_gamma and not np.isclose(X_var, 1.0):
+                    # NOTE: when deprecation ends we need to remove explicitly
+                    # setting `gamma` in examples (also in tests). See
+                    # https://github.com/scikit-learn/scikit-learn/pull/10331
+                    # for the examples/tests that need to be reverted.
+                    warnings.warn("The default value of gamma will change "
+                                  "from 'auto' to 'scale' in version 0.22 to "
+                                  "account better for unscaled features. Set "
+                                  "gamma explicitly to 'auto' or 'scale' to "
+                                  "avoid this warning.", FutureWarning)
+                self._gamma = 1.0 / X.shape[1]
+        elif self.gamma == 'auto':
+            self._gamma = 1.0 / X.shape[1]
+        else:
+            self._gamma = self.gamma
 
         n_samples = X.shape[0]
         # TODO: fix Gamma
