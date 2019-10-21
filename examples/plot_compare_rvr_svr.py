@@ -20,7 +20,7 @@ from sklearn_rvm import RVR
 rng = np.random.RandomState(0)
 
 # Generate sample data
-X = 2 * np.pi * np.random.random(25) - np.pi
+X = 4 * np.pi * np.random.random(100) - 2 * np.pi
 y = np.sinc(X)
 y += 0.25 * (0.5 - rng.rand(X.shape[0]))  # add noise
 
