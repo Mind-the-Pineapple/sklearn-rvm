@@ -17,6 +17,9 @@ import matplotlib.pyplot as plt
 from sklearn.svm import SVR
 from sklearn_rvm import RVR
 
+# TODO:  Chear erro com esse
+# np.random.seed(0)
+np.random.seed(1)
 rng = np.random.RandomState(0)
 
 # Generate sample data
