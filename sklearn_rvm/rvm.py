@@ -23,7 +23,7 @@ class BaseRVM(BaseEstimator, metaclass=ABCMeta):
 
     @abstractmethod
     def __init__(self, kernel, degree, gamma, coef0,
-                 tol, threshold_alpha,
+                 tol, threshold_alpha, compute_score,
                  class_weight, verbose, max_iter, random_state):
 
         if gamma == 0:
@@ -37,6 +37,7 @@ class BaseRVM(BaseEstimator, metaclass=ABCMeta):
         self.coef0 = coef0
         self.tol = tol
         self.threshold_alpha = threshold_alpha
+        self.compute_score = compute_score
         self.class_weight = class_weight
         self.max_iter = max_iter
         self.verbose = verbose
@@ -45,6 +46,23 @@ class BaseRVM(BaseEstimator, metaclass=ABCMeta):
     @abstractmethod
     def fit(self, X, y):
         """Fit model."""
+
+    @property
+    def _pairwise(self):
+        return self.kernel == "precomputed"
+
+    @property
+    def coef_(self):
+        if self.kernel != 'linear':
+            raise AttributeError('coef_ is only available when using a linear kernel')
+
+        coef = self._get_coef()
+        return coef
+
+    def _get_coef(self):
+        # TODO: Verify if bias is included in coef_
+
+        return np.dot(self.mu_[1:], self.relevance_vectors_)
 
     def _get_kernel(self, X, Y=None):
         '''Calculates kernelised features'''
@@ -97,6 +115,10 @@ class RVR(BaseRVM, RegressorMixin):
     verbose : bool
         Print message to stdin if True
 
+    compute_score : boolean, optional
+        If True, compute the objective function at each step of the model.
+        Default is False.
+
     Attributes
     ----------
     relevance_ : array-like, shape = [n_relevance]
@@ -124,7 +146,7 @@ class RVR(BaseRVM, RegressorMixin):
     """
 
     def __init__(self, kernel='rbf', degree=3, gamma='auto_deprecated', coef0=0.0,
-                 tol=1e-6, threshold_alpha=1e5,
+                 tol=1e-6, threshold_alpha=1e5, compute_score=False,
                  max_iter=5000, verbose=False):
 
         if gamma == 0:
@@ -134,7 +156,7 @@ class RVR(BaseRVM, RegressorMixin):
 
         super().__init__(
             kernel=kernel, degree=degree, gamma=gamma, coef0=coef0,
-            tol=tol, threshold_alpha=threshold_alpha,
+            tol=tol, threshold_alpha=threshold_alpha, compute_score=compute_score,
             max_iter=max_iter, verbose=verbose, class_weight=None, random_state=None)
 
     def _calculate_statistics(self, K, alpha, used_cond, y, sigma_squared):
@@ -219,7 +241,10 @@ class RVR(BaseRVM, RegressorMixin):
         # TODO: Add fixed sigma_squared
         # TODO: Add compute_score similar to sklearn.linear_model.ARDRegression
 
-        X, y = check_X_y(X, y, y_numeric=True, ensure_min_samples=2)
+        X, y = check_X_y(X, y, y_numeric=True, ensure_min_samples=2, dtype='float64')
+
+        if self.kernel == "precomputed" and X.shape[0] != X.shape[1]:
+            raise ValueError("X.shape[0] should be equal to X.shape[1]")
 
         if self.gamma in ('scale', 'auto_deprecated'):
             X_var = X.var()
@@ -247,9 +272,17 @@ class RVR(BaseRVM, RegressorMixin):
         else:
             self._gamma = self.gamma
 
+        # TODO: Fix aligment
+        # check_alignment = False
+
+        self.scores_ = list()
+
         n_samples = X.shape[0]
 
         K = self._get_kernel(X)
+
+        # Scale basis vectors to unit norm. This eases some calculations and will improve numerical robustness later.
+        K, scales = self._preprocess_basis(K)
 
         # Add bias (intercept)
         K = np.hstack((np.ones((n_samples, 1)), K))
@@ -280,6 +313,12 @@ class RVR(BaseRVM, RegressorMixin):
         for iter in range(self.max_iter):
             if self.verbose:
                 print('Iteration: {}'.format(iter))
+
+            if self.compute_score:
+                # compute the log marginal likelihood
+                score = self._log_marginal_likelihood(n_samples, sigma_squared, Phi, mu, alpha, y, used_cond)
+                self.scores_.append(score)
+
             # 4. Pick a candidate basis vector from the start of the queue and put it at the end
             basis_idx = queue.popleft()
             queue.append(basis_idx)
@@ -300,6 +339,13 @@ class RVR(BaseRVM, RegressorMixin):
             # 7. Add basis function to the model with updated alpha
             elif theta[basis_idx] > 0 and alpha[basis_idx] >= INFINITY:
                 alpha[basis_idx] = s[basis_idx] ** 2 / (q[basis_idx] ** 2 - s[basis_idx])
+                # if check_alignment == True:
+                #     p = basis.T @ Phi
+                #     p_mask = p > (1 - 1e-3)
+                #     if sum(p_mask) == 0:
+                #         used_cond[basis_idx] = True
+                # else:
+                #     used_cond[basis_idx] = True
                 used_cond[basis_idx] = True
 
             # 8. Delete theta basis function from model and set alpha to infinity
@@ -327,6 +373,8 @@ class RVR(BaseRVM, RegressorMixin):
 
             not_used_cond = np.logical_not(old_used_cond)
             if reestimate_action and delta < self.tol and all(th <= 0 for th in theta[not_used_cond]):
+                if self.verbose:
+                    print("Converged after %s iterations" % iter)
                 break
 
             # 9. Estimate noise level
@@ -352,19 +400,27 @@ class RVR(BaseRVM, RegressorMixin):
             # 10. Recompute/update Sigma and mu as well as s and q
             Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha, used_cond, y, sigma_squared)
 
+        if self.compute_score:
+            # compute the log marginal likelihood
+            score = self._log_marginal_likelihood(n_samples, sigma_squared, Phi, mu, alpha, y, used_cond)
+            self.scores_.append(score)
+
         # TODO: Review this part
         relevant = alpha < self.threshold_alpha
         relevant = relevant * used_cond
 
+        # TODO: Review these relevant vector without threshold
         self.relevance_ = np.array(list(range(len(relevant[1:]))))[relevant[1:]]
         self.relevance_vectors_ = X[self.relevance_]
 
         alpha_used = alpha[used_cond]
         relevant_cond = alpha_used < self.threshold_alpha
 
+        # Add scales
+        self.scales = scales[relevant[1:]]
+
         self.mu_ = mu[relevant_cond]
-        # TODO: Verify if bias is included in coef_
-        self.coef_ = np.dot(self.mu_[1:], self.relevance_vectors_)
+        self.mu_[1:] = self.mu_[1:] / self.scales
         self.dual_coef_ = self.mu_[1:]
 
         self.Sigma_ = Sigma[relevant_cond][:, relevant_cond]
@@ -410,6 +466,31 @@ class RVR(BaseRVM, RegressorMixin):
             y_std = np.sqrt(np.diag(err_var))
             return y_mean, y_std
 
+    def _preprocess_basis(self, K):
+        N, M = K.shape
+
+        # Compute "lengths" of basis vectors (columns of BASIS)
+        scales = np.sqrt(np.sum(K ** 2, axis=0))
+
+        # Work-around divide-by-zero inconvenience
+        scales[scales == 0] = 1
+
+        # Normalise each basis vector to "unit length"
+        for m in range(M):
+            K[:, m] = K[:, m] / scales[m]
+        return K, scales
+
+    def _log_marginal_likelihood(self, n_samples, sigma_squared, Phi, mu, alpha, y, used_cond):
+        """Log marginal likelihood."""
+        beta = (1 / sigma_squared)
+        U = linalg.cholesky(Phi.T @ Phi * beta + np.diag(alpha[used_cond]))
+        y_pred = Phi @ mu
+        e = (y - y_pred)
+        ED = e.T @ e
+        dataLikely = (n_samples * np.log(beta) - beta * ED) / 2
+        logdetHOver2 = np.sum(np.log(np.diag(U)))
+        logML = dataLikely - (mu ** 2).T @ alpha[used_cond] / 2 + np.sum(np.log(alpha[used_cond])) / 2 - logdetHOver2
+        return logML
 
 class RVC(BaseRVM, ClassifierMixin):
     def __init__(self):
