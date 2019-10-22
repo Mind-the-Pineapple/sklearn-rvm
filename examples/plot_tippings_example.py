@@ -72,32 +72,38 @@ w_infer[rvr.relevance_, :] = rvr.dual_coef_[:, None]
 
 y_l = basis @ w_infer
 
-plt.scatter(X, outputs)
-plt.show()
+# Plot the data
+fig, axs = plt.subplots(2, 3)
+axs[0, 0].scatter(X, outputs, marker='.')
+axs[0, 0].title.set_text('Generated data ({:} points)'.format(N))
 
+# Likelihood trace (and Gaussian noise info)
 lsteps = len(rvr.scores_)
-plt.plot(range(lsteps), rvr.scores_, 'g-')
-print('Actual noise:   {:.5f}'.format(noise))
-print('Inferred noise: {:.5f}'.format(np.sqrt(rvr.sigma_squared_)))
-plt.text(0.5, 0.5, 'Actual noise:   {:.5f}\nInferred noise: {:.5f}'.format(noise,np.sqrt(rvr.sigma_squared_)))
-
-# t_ = sprintf('Actual noise:   %.5f', noise);
-# text(ax(1) + 0.1 * dx, ax(3) + 0.6 * dy, t_, 'FontName', 'Courier')
-# t_ = sprintf('Inferred noise: %.5f', 1 / sqrt(HYPERPARAMETER.beta));
-# text(ax(1) + 0.1 * dx, ax(3) + 0.5 * dy, t_, 'FontName', 'Courier')
+axs[0, 1].title.set_text('Log marginal likelihood trace')
+axs[0, 1].plot(range(lsteps), rvr.scores_)
+axs[0, 1].text(0.5, 0.5,
+               'Actual noise:   {:.5f}\nInferred noise: {:.5f}'.format(noise, np.sqrt(rvr.sigma_squared_)),
+               horizontalalignment='center',
+               verticalalignment='center',
+               transform=axs[0, 1].transAxes)
 
 # Compare the generative and predictive linear models
-
-plt.plot(X, z)
-plt.plot(X, y_l)
-plt.title('Generative function and linear model')
-# plt.legend('Actual','Model','Location','NorthWest')
-# plt.legend('boxoff')
+axs[0, 2].plot(X, z, color='k', linewidth=4, label='Actual')
+axs[0, 2].plot(X, y_l, color='r', linewidth=3.0, label='Model')
+axs[0, 2].title.set_text('Generative function and linear model')
+axs[0, 2].legend()
 
 # Compare the data and the predictive model (post link-function)
-plt.scatter(X, outputs)
-plt.plot(X, y_l)
-plt.scatter(X[rvr.relevance_], outputs[rvr.relevance_])
+axs[1, 0].scatter(X, outputs, marker='.')
+axs[1, 0].plot(X, y_l, color='r')
+axs[1, 0].scatter(X[rvr.relevance_], outputs[rvr.relevance_], s=80, facecolors='none', edgecolors='r', )
+axs[1, 0].title.set_text('Data and predictor')
 
 # Show the inferred weights
-plt.stem(w_infer)
+axs[1, 1].stem(w_infer, markerfmt='.')
+axs[1, 1].title.set_text('Inferred weights ({:})'.format(len(rvr.relevance_)))
+
+# Show the "well-determinedness" factors
+axs[1, 2].bar(range(len(rvr.gamma_)), rvr.gamma_)
+axs[1, 2].title.set_text('Well-determinedness (gamma)')
+plt.show()

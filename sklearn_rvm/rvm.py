@@ -393,6 +393,7 @@ class RVR(BaseRVM, RegressorMixin):
 
             # Using format from the fast algorithm paper
             y_pred = np.dot(Phi, mu)
+            gamma = 1 - np.multiply(alpha[used_cond], np.diag(Sigma))
             sigma_squared = (linalg.norm(y - y_pred) ** 2) / \
                             (n_samples - np.sum(used_cond) + np.sum(
                                 np.multiply(alpha[used_cond], np.diag(Sigma))))
@@ -418,7 +419,7 @@ class RVR(BaseRVM, RegressorMixin):
 
         # Add scales
         self.scales = scales[relevant[1:]]
-
+        self.gamma_ = gamma[1:]
         self.mu_ = mu[relevant_cond]
         self.mu_[1:] = self.mu_[1:] / self.scales
         self.dual_coef_ = self.mu_[1:]
@@ -491,6 +492,7 @@ class RVR(BaseRVM, RegressorMixin):
         logdetHOver2 = np.sum(np.log(np.diag(U)))
         logML = dataLikely - (mu ** 2).T @ alpha[used_cond] / 2 + np.sum(np.log(alpha[used_cond])) / 2 - logdetHOver2
         return logML
+
 
 class RVC(BaseRVM, ClassifierMixin):
     def __init__(self):
