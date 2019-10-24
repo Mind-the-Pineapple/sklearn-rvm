@@ -19,9 +19,83 @@ from sklearn.metrics.pairwise import pairwise_kernels
 
 
 class EMRVR(RegressorMixin):
+    """Relevance Vector Regressor.
+
+    Parameters
+    ----------
+    kernel : string, optional (default='rbf')
+         Specifies the kernel type to be used in the algorithm.
+         It must be one of 'linear', 'poly', 'rbf' or 'sigmoid'.
+         If none is given, 'rbf' will be used.
+
+    degree : int, optional (default=3)
+        Degree of the polynomial kernel function ('poly').
+        Ignored by all other kernels.
+
+    gamma : float, optional (default='auto')
+        Kernel coefficient for 'rbf', 'poly' and 'sigmoid'.
+
+        Current default is 'auto' which uses 1 / n_features,
+        if ``gamma='scale'`` is passed then it uses 1 / (n_features * X.var())
+        as value of gamma. The current default of gamma, 'auto', will change
+        to 'scale' in version 0.22. 'auto_deprecated', a deprecated version of
+        'auto' is used as a default indicating that no explicit value of gamma
+        was passed.
+
+    tol : float, optional (default=1e-6)
+        Tolerance for stopping criterion.
+
+    coef0 : float, optional (default=0.0)
+        Independent term in kernel function.
+        It is only significant in 'poly' and 'sigmoid'.
+
+    threshold_alpha:
+
+    alpha_max:
+
+    init_alpha:
+
+    bias_used:
+
+    max_iter : int, optional (default=5000)
+        Hard limit on iterations within solver.
+
+    verbose : bool
+        Print message to stdin if True
+
+    compute_score : boolean, optional
+        If True, compute the objective function at each step of the model.
+        Default is False.
+
+    Attributes
+    ----------
+    relevance_ : array-like, shape = [n_relevance]
+        Indices of relevance vectors.
+
+    relevance_vectors_ : array-like, shape = [n_relevance, n_features]
+        Relevance vectors (equivalent to X[relevance_]).
+
+    alpha_:
+
+    gamma_:
+
+    Phi_:
+
+    Sigma_:
+
+    mu_:
+
+    coef_ : array, shape = [n_class * (n_class-1) / 2, n_features]
+        Weights assigned to the features (coefficients in the primal
+        problem). This is only available in the case of a linear kernel.
+        `coef_` is a readonly property derived from `mu` and
+        `relevance_vectors_`.
+
+    """
+
     def __init__(self, kernel='rbf', degree=3, gamma='auto_deprecated', coef0=0.0,
-                 tol=1e-3, threshold_alpha=1e5, compute_score=False,
-                 max_iter=5000, verbose=False, bias_used=True):
+                 tol=1e-3, threshold_alpha=1e5, alpha_max=1e9, init_alpha=None, bias_used=True,
+                 max_iter=5000, verbose=False, compute_score=False):
 
         if gamma == 0:
             msg = ("The gamma value of 0.0 is invalid. Use 'auto' to set"
@@ -38,6 +112,23 @@ class EMRVR(RegressorMixin):
         self.max_iter = max_iter
         self.verbose = verbose
         self.bias_used = bias_used
+        self.alpha_max = alpha_max
+        self.init_alpha = init_alpha
+
+    @property
+    def _pairwise(self):
+        return self.kernel == "precomputed"
+
+    @property
+    def coef_(self):
+        if self.kernel != 'linear':
+            raise AttributeError('coef_ is only available when using a linear kernel')
+
+        coef = self._get_coef()
+        return coef
+
+    def _get_coef(self):
+        return np.dot(self.mu_, self.relevance_vectors_)
 
     def _get_kernel(self, X, Y=None):
         '''Calculates kernelised features'''
@@ -52,7 +143,7 @@ class EMRVR(RegressorMixin):
 
     def _prune(self):
         """Remove basis functions based on alpha values."""
-        keep_alpha = self.alpha < self.threshold_alpha
+        keep_alpha = self.alpha_ < self.threshold_alpha
 
         if not np.any(keep_alpha):
             keep_alpha[0] = True
@@ -61,15 +152,30 @@ class EMRVR(RegressorMixin):
             if not keep_alpha[0]:
                 self.bias_used = False
             self.relevance_vectors_ = self.relevance_vectors_[keep_alpha[1:]]
+            self.relevance_ = self.relevance_[keep_alpha[1:]]
         else:
             self.relevance_vectors_ = self.relevance_vectors_[keep_alpha]
+            self.relevance_ = self.relevance_[keep_alpha]
 
-        self.alpha = self.alpha[keep_alpha]
-        self.alpha_old = self.alpha_old[keep_alpha]
+        self.alpha_ = self.alpha_[keep_alpha]
+        self._alpha_old = self._alpha_old[keep_alpha]
         self.gamma_ = self.gamma_[keep_alpha]
-        self.Phi = self.Phi[:, keep_alpha]
-        self.Sigma = self.Sigma[np.ix_(keep_alpha, keep_alpha)]
-        self.mu = self.mu[keep_alpha]
+        self.Phi_ = self.Phi_[:, keep_alpha]
+        self.Sigma_ = self.Sigma_[np.ix_(keep_alpha, keep_alpha)]
+        self.mu_ = self.mu_[keep_alpha]
+
+    def compute_marginal_likelihood(self, hessian, n_samples, y):
+        '''Calculates marginal likelihood.'''
+        ED = np.sum((y - self.Phi @ self.mu) ** 2)
+        U = np.linalg.cholesky(hessian)
+        try:
+            Ui = np.linalg.inv(U)
+        except linalg.LinAlgError:
+            Ui = np.linalg.pinv(U)
+        dataLikely = (n_samples * np.log(self.beta_) - self.beta_ * ED) / 2
+        logdetH = -2 * np.sum(np.log(np.diag(Ui)))
+        marginal = dataLikely - 0.5 * (logdetH - np.sum(np.log(self.alpha_)) + (self.mu_ ** 2).T @ self.alpha_)
+        return marginal
 
     def fit(self, X, y):
         """Fit the SVM model according to the given training data.
@@ -117,48 +223,62 @@ class EMRVR(RegressorMixin):
         else:
             self._gamma = self.gamma
 
-        n_samples = X.shape[0]
-        self.Phi = self._get_kernel(X)
-        if self.bias_used:
-            self.Phi = np.hstack((np.ones((n_samples, 1)), self.Phi))
+        self.scores_ = list()
 
-        M = self.Phi.shape[1]
+        n_samples = X.shape[0]
+        self.Phi_ = self._get_kernel(X)
+        if self.bias_used:
+            self.Phi_ = np.hstack((np.ones((n_samples, 1)), self.Phi_))
+
+        M = self.Phi_.shape[1]
+        if self.init_alpha == None:
+            self.init_alpha = 1 / M ** 2
+        self.relevance_ = np.array(range(n_samples))
         self.relevance_vectors_ = X
 
-        # Initialize the sigma squared value and the B matrix
+        # Initialize beta (1 / sigma squared)
         sigma_squared = (max(1e-6, np.std(y) * 0.1) ** 2)
-        self.beta = 1 / sigma_squared
+        self.beta_ = 1 / sigma_squared
 
-        self.alpha = np.ones(M)
+        self.alpha_ = self.init_alpha * np.ones(M)
 
-        self.alpha_old = self.alpha.copy()
+        self._alpha_old = self.alpha_.copy()
 
         for i in range(self.max_iter):
-            A = np.diag(self.alpha)
-            i_s = self.beta * self.Phi.T @ self.Phi + A
+            A = np.diag(self.alpha_)
+            hessian = self.beta_ * self.Phi_.T @ self.Phi_ + A
 
-            # Calculate Sigma and mu based on the initialized parameters
+            # Calculate Sigma and mu
             try:
-                self.Sigma = np.linalg.inv(i_s)
+                self.Sigma_ = np.linalg.inv(hessian)
             except linalg.LinAlgError:
-                self.Sigma = np.linalg.pinv(i_s)
+                self.Sigma_ = np.linalg.pinv(hessian)
 
-            self.mu = self.beta * (self.Sigma @ self.Phi.T @ y)
+            self.mu_ = self.beta_ * (self.Sigma_ @ self.Phi_.T @ y)
 
-            self.gamma_ = 1 - self.alpha * np.diag(self.Sigma)
+            # Well-determinedness parameters (gamma)
+            self.gamma_ = 1 - self.alpha_ * np.diag(self.Sigma_)
 
-            self.alpha = self.gamma_ / (self.mu ** 2)
-            self.alpha = np.clip(self.alpha, 0, 1e10)
-            self.beta = (n_samples - np.sum(self.gamma_)) / (np.sum((y - self.Phi @ self.mu) ** 2))
+            # Alpha re-estimation
+            # MacKay-style update for alpha given in original NIPS paper
+            self.alpha_ = self.gamma_ / (self.mu_ ** 2)
+            self.alpha_ = np.clip(self.alpha_, 0, self.alpha_max)
+            self.beta_ = (n_samples - np.sum(self.gamma_)) / (np.sum((y - self.Phi_ @ self.mu_) ** 2))
 
+            # Compute marginal likelihood
+            if self.compute_score:
+                ll = self.compute_marginal_likelihood(hessian, n_samples, y)
+                self.scores_.append(ll)
+
+            # Prune based on large values of alpha
             self._prune()
 
-            delta = np.amax(np.absolute(self.alpha - self.alpha_old))
-
+            # Terminate if the largest alpha change is smaller than threshold
+            delta = np.amax(np.absolute(np.log(self.alpha_) - np.log(self._alpha_old)))
             if delta < self.tol and i > 1:
                 break
 
-            self.alpha_old = self.alpha.copy()
+            self._alpha_old = self.alpha_.copy()
 
     def predict(self, X, return_std=False):
         """Predict using the linear model.
@@ -183,7 +303,7 @@ class EMRVR(RegressorMixin):
             Only returned when return_std is True.
         """
         # Check is fit had been called
-        check_is_fitted(self, ['relevance_vectors_'])
+        check_is_fitted(self, ['relevance_vectors_', 'mu_', 'Sigma_'])
 
         X = check_array(X)
 
@@ -193,10 +313,10 @@ class EMRVR(RegressorMixin):
         if self.bias_used:
             K = np.hstack((np.ones((n_samples, 1)), K))
 
-        y_mean = K @ self.mu
+        y_mean = K @ self.mu_
         if return_std is False:
             return y_mean
         else:
-            err_var = (1 / self.beta) + K @ self.Sigma @ K.T
+            err_var = (1 / self.beta_) + K @ self.Sigma_ @ K.T
             y_std = np.sqrt(np.diag(err_var))
             return y_mean, y_std
