@@ -361,9 +361,7 @@ class RVC(BaseRVM, ClassifierMixin):
             data_err = -data_err
         return t_hat, data_err
 
-    def _calculate_statistics(self, K, alpha_values, included_cond, y, mu):
-
-        # Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha_values, included_cond, y, mu)
+    def _calculate_statistics(self, K, alpha_values, included_cond, y, logout):
 
         n_samples = y.shape[0]
         error_log = []
@@ -475,7 +473,7 @@ class RVC(BaseRVM, ClassifierMixin):
         alpha_values[selected_basis] = EPSILON  # Set alpha to zero for free-basis
         included_cond[selected_basis] = True
 
-        Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha_values, included_cond, y, mu)
+        Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha_values, included_cond, y, logout)
 
         # 3. Initialize Sigma, q and s for all bases
 
@@ -514,7 +512,7 @@ class RVC(BaseRVM, ClassifierMixin):
                 included_cond[basis_idx] = False
                 print("delete")
 
-            Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha_values, included_cond, y, mu)
+            Sigma, mu, s, q, Phi = self._calculate_statistics(K, alpha_values, included_cond, y, logout)
 
             # 11. Check for convergence
             delta = alpha_values[current_included_cond] - current_alpha_values[current_included_cond]
@@ -530,13 +528,13 @@ class RVC(BaseRVM, ClassifierMixin):
         relevance_ = np.array(list(range(len(relevant[1:]))))[relevant[1:]]
         self.relevance_vectors_ = X[relevance_]
 
-        self.alpha_used = alpha_values[included_cond]
-        self.relevant_cond = alpha_used < threshold_alpha
+        alpha_used = alpha_values[included_cond]
+        relevant_cond = alpha_used < threshold_alpha
 
         # Add scales
 
         self.mu_ = mu[relevant_cond]
-        self.dual_coef_ = mu_[1:]
+        self.dual_coef_ = self.mu_[1:]
         self.coef_ = self.mu_ # ??
         self.Sigma = Sigma[relevant_cond][:, relevant_cond]
         self.relevance_vectors_ = X[relevant_cond]
@@ -550,7 +548,7 @@ class RVC(BaseRVM, ClassifierMixin):
 
         K = self.relevance_vectors_ @ X
         K = K[:,np.newaxis]
-        self.logit = self.mu_ @ K
+        self.logit = K.T @ self.mu_
         y_pred = expit(self.logit)
 
         return y_pred
