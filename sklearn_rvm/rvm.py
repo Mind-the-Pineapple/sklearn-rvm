@@ -529,15 +529,15 @@ class RVC(BaseRVM, ClassifierMixin):
         self.relevance_vectors_ = X[relevance_]
 
         alpha_used = alpha_values[included_cond]
-        relevant_cond = alpha_used < threshold_alpha
+        self.relevant_cond = alpha_used < threshold_alpha
 
         # Add scales
 
-        self.mu_ = mu[relevant_cond]
+        self.mu_ = mu[self.relevant_cond]
         self.dual_coef_ = self.mu_[1:]
         self.coef_ = self.mu_ # ??
-        self.Sigma = Sigma[relevant_cond][:, relevant_cond]
-        self.relevance_vectors_ = X[relevant_cond]
+        self.Sigma = Sigma[self.relevant_cond][:, self.relevant_cond]
+        self.relevance_vectors_ = X[self.relevant_cond]
 
         return
 
@@ -546,9 +546,10 @@ class RVC(BaseRVM, ClassifierMixin):
     def predict(self, X):
         """TODO: Add documentation"""
 
-        K = self.relevance_vectors_ @ X
+        K = self.relevant_cond @ X
         K = K[:,np.newaxis]
-        self.logit = K.T @ self.mu_
+        K = np.hstack((np.ones((K.shape[0], 1)), K))
+        self.logit = K @ self.mu_
         y_pred = expit(self.logit)
 
         return y_pred
