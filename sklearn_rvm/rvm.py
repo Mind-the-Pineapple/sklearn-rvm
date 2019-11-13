@@ -8,10 +8,13 @@ from abc import ABCMeta, abstractmethod
 from collections import deque
 
 import numpy as np
+from numpy.linalg import LinAlgError
+from scipy.linalg import pinvh
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.utils.validation import check_X_y, check_is_fitted, check_array
 from sklearn.metrics.pairwise import pairwise_kernels
-from scipy.special import expit # check if we want to impor tmore stuff
+from scipy.special import expit 
+from sklearn.multiclass import OneVsOneClassifier
 
 INFINITY = 1e20
 EPSILON = 1e-9
@@ -350,14 +353,15 @@ class RVC(BaseRVM, ClassifierMixin):
         t_hat0 = t_hat == 0
         t_hat1 = t_hat == 1
 
-        if (t_hat0[y>0]).any() or (t_hat1[y<1]).any():
+        if (t_hat0[y > 0]).any() or (t_hat1[y < 1]).any():
             data_err = INFINITY
         else:
             # error is calculated through cross-entropy
             data_err = - np.sum(y[:,np.newaxis]*np.log(t_hat+EPSILON)) #TODO: shouldnt I divide by n_trials?
             y_temp = y[:,np.newaxis]
+            # TODO: Check if the dot product below is element wise
             data_err = (y_temp[np.logical_not(t_hat0)])[:,np.newaxis].T @ np.log(t_hat[np.logical_not(t_hat0)] )
-            data_err += (1- (y_temp[np.logical_not(t_hat1)])[:,np.newaxis].T) @ np.log(1- t_hat[np.logical_not(t_hat1)])
+            data_err += (1 - (y_temp[np.logical_not(t_hat1)])[:,np.newaxis].T) @ np.log(1- t_hat[np.logical_not(t_hat1)])
             data_err = -data_err
         return t_hat, data_err
 
@@ -390,15 +394,21 @@ class RVC(BaseRVM, ClassifierMixin):
             H = tmp.T @ Phi + A
             # Invert Hessian via Cholesky - lower triangular Cholesky factor of H.
             # Must be positive definite. Check exception
-            U = np.linalg.cholesky(H)
-
+            try:
+                U = np.linalg.cholesky(H)
+            except LinAlgError:
+                U = pinvh(H)
+            print(g)
+            print('+++++++++++++++++')
             # Check for termination based on the Gradient
             if (abs(g) < GRAD_MIN).all():
                 break
-
+            #print(np.linalg.cholesky(H))
+            #print(pinvh(H))
+            #print('+++++++++++++++++++++++++++++++++++++')
             # Calculate Newton Step: H^-1 * g
-            delta_mu = np.linalg.lstsq(U, np.linalg.lstsq(U.T, g)[0])[0]
-            step = 1
+            delta_mu = np.linalg.solve(U, np.linalg.solve(U.T, g))
+            step = 1.0
 
             while step > STEP_MIN:
                 mu_new = mu + step * delta_mu
@@ -416,6 +426,7 @@ class RVC(BaseRVM, ClassifierMixin):
 
         # Compute covariance approximation
         Ui = np.linalg.inv(U)
+        # TODO: Is it Ui.T @ Ui
         Sigma = Ui @ Ui.T
 
         # Compute posterior meanbased outputs
@@ -424,6 +435,7 @@ class RVC(BaseRVM, ClassifierMixin):
 
         # Update s and q
         tmp_1 = K.T @ (Phi * (B * np.ones((1, M))))
+        # TODO: Ui.T em baixo?
         S = (B.T @ K ** 2).T - np.sum((tmp_1 @ Ui) ** 2, axis=1)[:, np.newaxis]
         Q = K.T @ e
 
@@ -445,6 +457,18 @@ class RVC(BaseRVM, ClassifierMixin):
         """TODO: Add documentation"""
         # TODO: Add fit_intercept (With and without bias)
 
+        self.classes_ = np.unique(y)
+        n_classes = len(self.classes_)
+
+        if n_classes < 2:
+            raise ValueError("2 classes at least are needed to train the model.")
+
+        elif n_classes > 2:
+            self.multi_ = None
+            self.multi_ = OneVsOneClassifier(self)
+            self.multi_.fit(X, y)
+            return self
+
         X, y = check_X_y(X, y, y_numeric=True, ensure_min_samples=2)
 
         n_samples = X.shape[0]
@@ -464,9 +488,10 @@ class RVC(BaseRVM, ClassifierMixin):
         if len(Phi.shape) == 1:
             Phi = Phi[:, np.newaxis]
             logout = logout[:, np.newaxis]
-
-        mu, _, _, _ = np.linalg.lstsq(Phi, np.log(
-            logout / (1 - logout)))  # TODO: least squares solution. np.log or math.log?
+        a = np.divide(logout, 1-logout)
+        b = np.log(np.divide(logout, 1-logout))
+        c = np.linalg.lstsq(Phi, np.log(np.divide(logout, 1-logout)))
+        mu, _, _, _ = np.linalg.lstsq(Phi, np.log(np.divide(logout, 1-logout)))# TODO: least squares solution. np.log or math.log?
         mask_mu = mu < EPSILON
 
         # alpha_values[selected_basis] = 1 / (mu + mu[mask_mu])**2 # in case there is no bias
@@ -480,7 +505,7 @@ class RVC(BaseRVM, ClassifierMixin):
         # Start updating the model iteratively
         # Create queue with indices to select candidates for update
         queue = deque(list(range(n_samples + 1)))
-        max_iter = 50
+        max_iter = 1000
         for epoch in range(max_iter):
             print(epoch)
             # 4. Pick a candidate basis vector from the start of the queue and put it at the end
@@ -493,6 +518,11 @@ class RVC(BaseRVM, ClassifierMixin):
             current_alpha_values = np.copy(alpha_values)
             current_included_cond = np.copy(included_cond)
 
+
+            ### DEBUGGING
+            #print(q)
+            #print(s)
+            #xprint(basis_idx)
             # 6. Re-estimate included alpha
             if theta[basis_idx] > 0 and current_alpha_values[basis_idx] < INFINITY:
                 alpha_values[basis_idx] = s[basis_idx] ** 2 / (q[basis_idx] ** 2 - s[basis_idx])
@@ -545,10 +575,10 @@ class RVC(BaseRVM, ClassifierMixin):
     # Selection can be random or calculate alpha and theta for all basis with more computational effort
     def predict(self, X):
         """TODO: Add documentation"""
-
+        n_samples = X.shape[0]
         K = self.relevant_cond @ X
         K = K[:,np.newaxis]
-        K = np.hstack((np.ones((K.shape[0], 1)), K))
+        K = np.hstack((np.ones((n_samples, 1)), K))
         self.logit = K @ self.mu_
         y_pred = expit(self.logit)
 
