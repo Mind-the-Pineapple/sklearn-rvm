@@ -127,7 +127,7 @@ class BaseRVM(BaseEstimator):
             degree=3,
             gamma=None,
             coef0=0.0,
-            n_iter=3000,
+            max_iter=3000,
             tol=1e-3,
             alpha=1e-6,
             threshold_alpha=1e9,
@@ -142,7 +142,7 @@ class BaseRVM(BaseEstimator):
         self.degree = degree
         self.gamma = gamma
         self.coef0 = coef0
-        self.n_iter = n_iter
+        self.max_iter = max_iter
         self.tol = tol
         self.alpha = alpha
         self.threshold_alpha = threshold_alpha
@@ -159,7 +159,7 @@ class BaseRVM(BaseEstimator):
             'degree': self.degree,
             'gamma': self.gamma,
             'coef0': self.coef0,
-            'n_iter': self.n_iter,
+            'max_iter': self.max_iter,
             'tol': self.tol,
             'alpha': self.alpha,
             'threshold_alpha': self.threshold_alpha,
@@ -246,7 +246,7 @@ class BaseRVM(BaseEstimator):
 
         self.alpha_old = self.alpha_
 
-        for i in range(self.n_iter):
+        for i in range(self.max_iter):
             self._posterior()
 
             self.gamma_ = 1 - self.alpha_ * np.diag(self.sigma_)
