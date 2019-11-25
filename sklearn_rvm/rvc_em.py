@@ -23,11 +23,6 @@ from abc import ABCMeta, abstractmethod
 from collections import deque
 import math
 
-import numpy as np
-from numpy import linalg
-from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
-from sklearn.utils.validation import check_X_y, check_is_fitted, check_array
-from sklearn.metrics.pairwise import pairwise_kernels
 
 import numpy as np
 
@@ -227,8 +222,40 @@ class BaseRVM(BaseEstimator):
         self.mu_ = self.mu_[keep_alpha]
 
     def fit(self, X, y):
-        """Fit the RVR to the training data."""
+        """Fit the RVM to the training data."""
         X, y = check_X_y(X, y)
+
+        if self.kernel == "precomputed" and X.shape[0] != X.shape[1]:
+            raise ValueError("X.shape[0] should be equal to X.shape[1]")
+
+        if self.gamma in ('scale', 'auto_deprecated'):
+            X_var = X.var()
+            if self.gamma == 'scale':
+                if X_var != 0:
+                    self._gamma = 1.0 / (X.shape[1] * X_var)
+                else:
+                    self._gamma = 1.0
+
+            else:
+                 kernel_uses_gamma = (not callable(self.kernel) and self.kernel
+                                      not in ('linear', 'precomputed'))
+                 if kernel_uses_gamma and not np.isclose(X_var, 1.0):
+                     # NOTE: when deprecation ends we need to remove explicitly
+                     # setting `gamma` in examples (also in tests). See
+                     # https://github.com/scikit-learn/scikit-learn/pull/10331
+                     # for the examples/tests that need to be reverted.
+                     warnings.warn("The default value of gamma will change "
+                                   "from 'auto' to 'scale' in version 0.22 to "
+                                   "account better for unscaled features. Set "
+                                   "gamma explicitly to 'auto' or 'scale' to "
+                                   "avoid this warning.", FutureWarning)
+                 self._gamma = 1.0 / X.shape[1]
+        elif self.gamma == 'auto':
+             self._gamma = 1.0 / X.shape[1]
+        else:
+             self._gamma = self.gamma
+
+        self.scores_ = list()
 
         n_samples, n_features = X.shape
 
