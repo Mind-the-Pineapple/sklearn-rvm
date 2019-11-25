@@ -17,6 +17,7 @@ with codecs.open('README.rst', encoding='utf-8-sig') as f:
     LONG_DESCRIPTION = f.read()
 MAINTAINER = 'Pedro F. da Costa, Walter Hugo Lopez Pinaya'
 MAINTAINER_EMAIL = 'pedro.ferreira_da_costa@kcl.ac.uk, walter.diaz_sanz@kcl.ac.uk'
+
 URL = 'https://github.com/Mind-the-Pineapple/sklearn-rvm'
 LICENSE = 'new BSD'
 DOWNLOAD_URL = 'https://github.com/Mind-the-Pineapple/sklearn-rvm'
