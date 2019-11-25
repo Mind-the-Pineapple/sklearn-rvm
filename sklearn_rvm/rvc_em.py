@@ -1,9 +1,11 @@
 
 """
 Relevance vector machine using expectation maximization like algorithm.
+
 Based on
 https://github.com/JamesRitchie/scikit-rvm
 https://github.com/ctgk/PRML/blob/master/prml/kernel/relevance_vector_regressor.py
+
 """
 # Author: Pedro Ferreira da Costa
 #         Walter Hugo Lopez Pinaya
@@ -27,8 +29,6 @@ from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.utils.validation import check_X_y, check_is_fitted, check_array
 from sklearn.metrics.pairwise import pairwise_kernels
 
-
-"""Relevance Vector Machine classes for regression and classification."""
 import numpy as np
 
 from scipy.optimize import minimize
@@ -45,10 +45,80 @@ from sklearn.utils.validation import check_X_y
 
 
 class BaseRVM(BaseEstimator):
-    """Base Relevance Vector Machine class.
-    Implementation of Mike Tipping's Relevance Vector Machine using the
-    scikit-learn API. Add a posterior over weights method and a predict
-    in subclass to use for classification or regression.
+
+    """Relevance Vector Classifier.
+
+    Parameters
+    ----------
+    kernel : string, optional (default='rbf')
+         Specifies the kernel type to be used in the algorithm.
+         It must be one of 'linear', 'poly', 'rbf' or 'sigmoid'.
+         If none is given, 'rbf' will be used.
+
+    degree : int, optional (default=3)
+        Degree of the polynomial kernel function ('poly').
+        Ignored by all other kernels.
+
+    gamma : float, optional (default='auto')
+        Kernel coefficient for 'rbf', 'poly' and 'sigmoid'.
+        Current default is 'auto' which uses 1 / n_features,
+        if ``gamma='scale'`` is passed then it uses 1 / (n_features * X.var())
+        as value of gamma. The current default of gamma, 'auto', will change
+        to 'scale' in version 0.22. 'auto_deprecated', a deprecated version of
+        'auto' is used as a default indicating that no explicit value of gamma
+        was passed.
+
+    tol : float, optional (default=1e-3)
+        Tolerance for stopping criterion.
+
+    coef0 : float, optional (default=0.0)
+        Independent term in kernel function.
+        It is only significant in 'poly' and 'sigmoid'.
+
+    threshold_alpha:
+
+    alpha_max:
+
+    init_alpha:
+
+    bias_used:
+
+    max_iter : int, optional (default=5000)
+        Hard limit on iterations within solver.
+
+    verbose : bool
+        Print message to stdin if True
+
+    compute_score : boolean, optional
+        If True, compute the objective function at each step of the model.
+        Default is False.
+
+
+    Attributes
+    ----------
+    relevance_ : array-like, shape = [n_relevance]
+        Indices of relevance vectors.
+
+    relevance_vectors_ : array-like, shape = [n_relevance, n_features]
+        Relevance vectors (equivalent to X[relevance_]).
+
+    alpha_:
+
+    gamma_:
+
+    Phi_:
+
+    Sigma_:
+
+    mu_:
+
+    coef_ : array, shape = [n_class * (n_class-1) / 2, n_features]
+        Weights assigned to the features (coefficients in the primal
+        problem). This is only available in the case of a linear kernel.
+        `coef_` is a readonly property derived from `mu` and
+        `relevance_vectors_`.
+
+
     """
 
     def __init__(
@@ -64,7 +134,8 @@ class BaseRVM(BaseEstimator):
             beta=1.e-6,
             beta_fixed=False,
             bias_used=True,
-            verbose=False
+            verbose=False,
+            compute_score=False
     ):
         """Copy params to object properties, no validation."""
         self.kernel = kernel
@@ -75,6 +146,7 @@ class BaseRVM(BaseEstimator):
         self.tol = tol
         self.alpha = alpha
         self.threshold_alpha = threshold_alpha
+        self.compute_score = compute_score
         self.beta = beta
         self.beta_fixed = beta_fixed
         self.bias_used = bias_used
@@ -183,6 +255,10 @@ class BaseRVM(BaseEstimator):
             if not self.beta_fixed:
                 self.beta_ = (n_samples - np.sum(self.gamma)) / (
                     np.sum((y - np.dot(self.phi, self.mu_)) ** 2))
+
+            if self.compute_score:
+                ll = self.compute_marginal_likelihood(hessian, n_samples, y)
+                self.scores_.append(ll)
 
             self._prune()
 
