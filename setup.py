@@ -7,7 +7,7 @@ import os
 from setuptools import find_packages, setup
 
 # get __version__ from _version.py
-ver_file = os.path.join('sklearn-svm', '_version.py')
+ver_file = os.path.join('sklearn_rvm', '_version.py')
 with open(ver_file) as f:
     exec(f.read())
 
@@ -15,11 +15,11 @@ DISTNAME = 'sklearn_rvm'
 DESCRIPTION = 'An scikit-learn style implementation of Relevance Vector Machines (RVM).'
 with codecs.open('README.rst', encoding='utf-8-sig') as f:
     LONG_DESCRIPTION = f.read()
-MAINTAINER = 'Pedro F. da Costa, Walter Hugo Pinaya'
+MAINTAINER = 'Pedro F. da Costa, Walter Hugo Lopez Pinaya'
 MAINTAINER_EMAIL = 'pedro.ferreira_da_costa@kcl.ac.uk, walter.diaz_sanz@kcl.ac.uk'
-URL = 'https://github.com/scikit-learn-contrib/project-template'
+URL = 'https://github.com/PedroFerreiradaCosta/sklearn-rvm'
 LICENSE = 'new BSD'
-DOWNLOAD_URL = 'https://github.com/scikit-learn-contrib/project-template'
+DOWNLOAD_URL = 'https://github.com/PedroFerreiradaCosta/sklearn-rvm'
 VERSION = __version__
 INSTALL_REQUIRES = ['numpy', 'scipy', 'scikit-learn']
 CLASSIFIERS = ['Intended Audience :: Science/Research',
@@ -32,7 +32,6 @@ CLASSIFIERS = ['Intended Audience :: Science/Research',
                'Operating System :: POSIX',
                'Operating System :: Unix',
                'Operating System :: MacOS',
-               'Programming Language :: Python :: 2.7',
                'Programming Language :: Python :: 3.5',
                'Programming Language :: Python :: 3.6',
                'Programming Language :: Python :: 3.7']
