@@ -221,7 +221,7 @@ class BaseRVM(BaseEstimator):
 
         self.alpha_ = self.alpha_[keep_alpha]
         self.alpha_old = self.alpha_old[keep_alpha]
-        self.gamma = self.gamma[keep_alpha]
+        self.gamma_ = self.gamma_[keep_alpha]
         self.phi = self.phi[:, keep_alpha]
         self.sigma_ = self.sigma_[np.ix_(keep_alpha, keep_alpha)]
         self.mu_ = self.mu_[keep_alpha]
@@ -249,11 +249,11 @@ class BaseRVM(BaseEstimator):
         for i in range(self.n_iter):
             self._posterior()
 
-            self.gamma = 1 - self.alpha_ * np.diag(self.sigma_)
-            self.alpha_ = self.gamma / (self.mu_ ** 2)
+            self.gamma_ = 1 - self.alpha_ * np.diag(self.sigma_)
+            self.alpha_ = self.gamma_ / (self.mu_ ** 2)
 
             if not self.beta_fixed:
-                self.beta_ = (n_samples - np.sum(self.gamma)) / (
+                self.beta_ = (n_samples - np.sum(self.gamma_)) / (
                     np.sum((y - np.dot(self.phi, self.mu_)) ** 2))
 
             if self.compute_score:
@@ -266,7 +266,7 @@ class BaseRVM(BaseEstimator):
                 print("Iteration: {}".format(i))
                 print("Alpha: {}".format(self.alpha_))
                 print("Beta: {}".format(self.beta_))
-                print("Gamma: {}".format(self.gamma))
+                print("Gamma: {}".format(self.gamma_))
                 print("m: {}".format(self.mu_))
                 print("Relevance Vectors: {}".format(self.relevance_.shape[0]))
                 print()
