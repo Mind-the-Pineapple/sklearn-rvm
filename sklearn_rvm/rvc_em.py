@@ -125,7 +125,7 @@ class BaseRVM(BaseEstimator):
             self,
             kernel='rbf',
             degree=3,
-            coef1=None,
+            gamma=None,
             coef0=0.0,
             n_iter=3000,
             tol=1e-3,
@@ -140,7 +140,7 @@ class BaseRVM(BaseEstimator):
         """Copy params to object properties, no validation."""
         self.kernel = kernel
         self.degree = degree
-        self.coef1 = coef1
+        self.gamma = gamma
         self.coef0 = coef0
         self.n_iter = n_iter
         self.tol = tol
@@ -157,7 +157,7 @@ class BaseRVM(BaseEstimator):
         params = {
             'kernel': self.kernel,
             'degree': self.degree,
-            'coef1': self.coef1,
+            'gamma': self.gamma,
             'coef0': self.coef0,
             'n_iter': self.n_iter,
             'tol': self.tol,
@@ -181,9 +181,9 @@ class BaseRVM(BaseEstimator):
         if self.kernel == 'linear':
             phi = linear_kernel(x, y)
         elif self.kernel == 'rbf':
-            phi = rbf_kernel(x, y, self.coef1)
+            phi = rbf_kernel(x, y, self.gamma)
         elif self.kernel == 'poly':
-            phi = polynomial_kernel(x, y, self.degree, self.coef1, self.coef0)
+            phi = polynomial_kernel(x, y, self.degree, self.gamma, self.coef0)
         elif callable(self.kernel):
             phi = self.kernel(x, y)
             if len(phi.shape) != 2:
