@@ -1,4 +1,3 @@
-
 """
 Relevance vector machine using expectation maximization like algorithm.
 
@@ -10,37 +9,20 @@ https://github.com/ctgk/PRML/blob/master/prml/kernel/relevance_vector_regressor.
 # Author: Pedro Ferreira da Costa
 #         Walter Hugo Lopez Pinaya
 # License: BSD 3 clause
-
-
 import warnings
 
-import numpy as np
 from numpy import linalg
-from sklearn.base import RegressorMixin
-from sklearn.utils.validation import check_X_y, check_is_fitted, check_array
 from sklearn.metrics.pairwise import pairwise_kernels
-from abc import ABCMeta, abstractmethod
-from collections import deque
-import math
-
-
 import numpy as np
-
 from scipy.optimize import minimize
 from scipy.special import expit
-
 from sklearn.base import BaseEstimator, RegressorMixin, ClassifierMixin
-from sklearn.metrics.pairwise import (
-    linear_kernel,
-    rbf_kernel,
-    polynomial_kernel
-)
+from sklearn.metrics.pairwise import linear_kernel, rbf_kernel, polynomial_kernel
 from sklearn.multiclass import OneVsOneClassifier
 from sklearn.utils.validation import check_X_y
 
 
 class BaseRVM(BaseEstimator):
-
     """Relevance Vector Classifier.
 
     Parameters
@@ -165,7 +147,7 @@ class BaseRVM(BaseEstimator):
         return np.dot(self.mu_, self.relevance_vectors_)
 
     def _get_kernel(self, X, Y=None):
-        '''Calculates kernelised features'''
+        """Calculates kernelised features"""
         if callable(self.kernel):
             params = self.kernel_params or {}
         else:
@@ -279,23 +261,23 @@ class BaseRVM(BaseEstimator):
                     self._gamma = 1.0
 
             else:
-                 kernel_uses_gamma = (not callable(self.kernel) and self.kernel
-                                      not in ('linear', 'precomputed'))
-                 if kernel_uses_gamma and not np.isclose(X_var, 1.0):
-                     # NOTE: when deprecation ends we need to remove explicitly
-                     # setting `gamma` in examples (also in tests). See
-                     # https://github.com/scikit-learn/scikit-learn/pull/10331
-                     # for the examples/tests that need to be reverted.
-                     warnings.warn("The default value of gamma will change "
-                                   "from 'auto' to 'scale' in version 0.22 to "
-                                   "account better for unscaled features. Set "
-                                   "gamma explicitly to 'auto' or 'scale' to "
-                                   "avoid this warning.", FutureWarning)
-                 self._gamma = 1.0 / X.shape[1]
+                kernel_uses_gamma = (not callable(self.kernel) and self.kernel
+                                     not in ('linear', 'precomputed'))
+                if kernel_uses_gamma and not np.isclose(X_var, 1.0):
+                    # NOTE: when deprecation ends we need to remove explicitly
+                    # setting `gamma` in examples (also in tests). See
+                    # https://github.com/scikit-learn/scikit-learn/pull/10331
+                    # for the examples/tests that need to be reverted.
+                    warnings.warn("The default value of gamma will change "
+                                  "from 'auto' to 'scale' in version 0.22 to "
+                                  "account better for unscaled features. Set "
+                                  "gamma explicitly to 'auto' or 'scale' to "
+                                  "avoid this warning.", FutureWarning)
+                self._gamma = 1.0 / X.shape[1]
         elif self.gamma == 'auto':
-             self._gamma = 1.0 / X.shape[1]
+            self._gamma = 1.0 / X.shape[1]
         else:
-             self._gamma = self.gamma
+            self._gamma = self.gamma
 
         self.scores_ = list()
 
