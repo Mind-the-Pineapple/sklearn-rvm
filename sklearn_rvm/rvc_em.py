@@ -125,6 +125,7 @@ class BaseRVM(BaseEstimator):
             max_iter=3000,
             tol=1e-3,
             alpha=1e-6,
+            alpha_max=1e9,
             threshold_alpha=1e9,
             beta=1.e-6,
             beta_fixed=False,
@@ -140,6 +141,7 @@ class BaseRVM(BaseEstimator):
         self.max_iter = max_iter
         self.tol = tol
         self.alpha = alpha
+        self.alpha_max = alpha_max
         self.threshold_alpha = threshold_alpha
         self.compute_score = compute_score
         self.beta = beta
@@ -247,6 +249,20 @@ class BaseRVM(BaseEstimator):
         self.sigma_ = self.sigma_[np.ix_(keep_alpha, keep_alpha)]
         self.mu_ = self.mu_[keep_alpha]
 
+    def compute_marginal_likelihood(self, n_samples, y):
+        '''Calculates marginal likelihood.'''
+
+        ED = np.sum((y - self.phi @ self.mu_) ** 2)
+        U = np.linalg.cholesky(self._hessian(self, self.mu_, self.alpha_, self.phi, self.t))
+        try:
+            Ui = np.linalg.inv(U)
+        except linalg.LinAlgError:
+            Ui = np.linalg.pinv(U)
+        dataLikely = (n_samples * np.log(self.beta_) - self.beta_ * ED) / 2
+        logdetH = -2 * np.sum(np.log(np.diag(Ui)))
+        marginal = dataLikely - 0.5 * (logdetH - np.sum(np.log(self.alpha_)) + (self.mu_ ** 2).T @ self.alpha_)
+        return marginal
+
     def fit(self, X, y):
         """Fit the RVM to the training data."""
         X, y = check_X_y(X, y)
@@ -302,15 +318,17 @@ class BaseRVM(BaseEstimator):
         for i in range(self.max_iter):
             self._posterior()
 
+            # Well-determinedness parameters (gamma)
             self.gamma_ = 1 - self.alpha_ * np.diag(self.sigma_)
             self.alpha_ = self.gamma_ / (self.mu_ ** 2)
+            self.alpha_ = np.clip(self.alpha_, 0, self.alpha_max)
 
             if not self.beta_fixed:
                 self.beta_ = (n_samples - np.sum(self.gamma_)) / (
                     np.sum((y - np.dot(self.phi, self.mu_)) ** 2))
 
             if self.compute_score:
-                ll = self.compute_marginal_likelihood(hessian, n_samples, y)
+                ll = self.compute_marginal_likelihood(n_samples, y)
                 self.scores_.append(ll)
 
             self._prune()
@@ -329,7 +347,7 @@ class BaseRVM(BaseEstimator):
             if delta < self.tol and i > 1:
                 break
 
-            self.alpha_old = self.alpha_
+            self.alpha_old = self.alpha_.copy()
 
         if self.bias_used:
             self.bias = self.mu_[-1]
