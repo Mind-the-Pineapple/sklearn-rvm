@@ -147,6 +147,32 @@ class BaseRVM(BaseEstimator):
         self.bias_used = bias_used
         self.verbose = verbose
 
+    @property
+    def _pairwise(self):
+        return self.kernel == "precomputed"
+
+    @property
+    def coef_(self):
+        if self.kernel != 'linear':
+            raise AttributeError('coef_ is only available when using a linear kernel')
+
+        coef = self._get_coef()
+        return coef
+
+    def _get_coef(self):
+        return np.dot(self.mu_, self.relevance_vectors_)
+
+    def _get_kernel(self, X, Y=None):
+        '''Calculates kernelised features'''
+        if callable(self.kernel):
+            params = self.kernel_params or {}
+        else:
+            params = {"gamma": self._gamma,
+                      "degree": self.degree,
+                      "coef0": self.coef0}
+        return pairwise_kernels(X, Y, metric=self.kernel,
+                                filter_params=True, **params)
+
     def get_params(self, deep=True):
         """Return parameters as a dictionary."""
         params = {
