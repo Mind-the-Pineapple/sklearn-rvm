@@ -16,7 +16,7 @@ from numpy import linalg
 from sklearn.base import RegressorMixin
 from sklearn.utils.validation import check_X_y, check_is_fitted, check_array
 from sklearn.metrics.pairwise import pairwise_kernels
-
+import scipy.linalg
 
 class EMRVR(RegressorMixin):
     """Relevance Vector Regressor.
@@ -249,21 +249,30 @@ class EMRVR(RegressorMixin):
             hessian = self.beta_ * self.Phi_.T @ self.Phi_ + A
 
             # Calculate Sigma and mu
+            # Use Cholesky decomposition for efficiency
+            # Ref: https://arxiv.org/abs/1111.4144
+            upper = scipy.linalg.cholesky(hessian)
             try:
-                self.Sigma_ = np.linalg.inv(hessian)
+                upper_inv = np.linalg.inv(upper)
             except linalg.LinAlgError:
-                self.Sigma_ = np.linalg.pinv(hessian)
+                upper_inv = np.linalg.pinv(upper)
 
-            self.mu_ = self.beta_ * (self.Sigma_ @ self.Phi_.T @ y)
+            # We have that:
+            self.Sigma_ = np.dot(upper_inv, upper_inv.conjugate().T)
+
+            self.mu_ = (upper_inv @ (upper_inv.conjugate().T @ self.Phi_.T @ y)) * self.beta_
+
+            # Equivalent sigma_diag = np.diag(self.Sigma_)
+            sigma_diag = np.sum(upper_inv ** 2, axis=1)
 
             # Well-determinedness parameters (gamma)
-            self.gamma_ = 1 - self.alpha_ * np.diag(self.Sigma_)
+            self.gamma_ = 1 - self.alpha_ * sigma_diag
 
             # Alpha re-estimation
             # MacKay-style update for alpha given in original NIPS paper
             self.alpha_ = self.gamma_ / (self.mu_ ** 2)
-            self.alpha_ = np.clip(self.alpha_, 0, self.alpha_max)
-            self.beta_ = (n_samples - np.sum(self.gamma_)) / (np.sum((y - self.Phi_ @ self.mu_) ** 2))
+            ed = (np.sum((y - self.Phi_ @ self.mu_) ** 2))
+            self.beta_ = (n_samples - np.sum(self.gamma_)) / ed
 
             # Compute marginal likelihood
             if self.compute_score:
