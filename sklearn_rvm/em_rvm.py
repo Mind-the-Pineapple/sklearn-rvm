@@ -131,7 +131,7 @@ class EMRVR(RegressorMixin):
         return np.dot(self.mu_, self.relevance_vectors_)
 
     def _get_kernel(self, X, Y=None):
-        '''Calculates kernelised features'''
+        """Calculates kernelised features"""
         if callable(self.kernel):
             params = self.kernel_params or {}
         else:
@@ -164,16 +164,10 @@ class EMRVR(RegressorMixin):
         self.Sigma_ = self.Sigma_[np.ix_(keep_alpha, keep_alpha)]
         self.mu_ = self.mu_[keep_alpha]
 
-    def compute_marginal_likelihood(self, hessian, n_samples, y):
-        '''Calculates marginal likelihood.'''
-        ED = np.sum((y - self.Phi @ self.mu) ** 2)
-        U = np.linalg.cholesky(hessian)
-        try:
-            Ui = np.linalg.inv(U)
-        except linalg.LinAlgError:
-            Ui = np.linalg.pinv(U)
-        dataLikely = (n_samples * np.log(self.beta_) - self.beta_ * ED) / 2
-        logdetH = -2 * np.sum(np.log(np.diag(Ui)))
+    def compute_marginal_likelihood(self, upper_inv, ed, n_samples, y):
+        """Calculates marginal likelihood."""
+        dataLikely = (n_samples * np.log(self.beta_) - self.beta_ * ed) / 2
+        logdetH = -2 * np.sum(np.log(np.diag(upper_inv)))
         marginal = dataLikely - 0.5 * (logdetH - np.sum(np.log(self.alpha_)) + (self.mu_ ** 2).T @ self.alpha_)
         return marginal
 
@@ -276,7 +270,7 @@ class EMRVR(RegressorMixin):
 
             # Compute marginal likelihood
             if self.compute_score:
-                ll = self.compute_marginal_likelihood(hessian, n_samples, y)
+                ll = self.compute_marginal_likelihood(upper_inv, ed, n_samples, y)
                 self.scores_.append(ll)
 
             # Prune based on large values of alpha
