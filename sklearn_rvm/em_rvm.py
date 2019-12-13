@@ -245,19 +245,35 @@ class EMRVR(RegressorMixin):
             # Calculate Sigma and mu
             # Use Cholesky decomposition for efficiency
             # Ref: https://arxiv.org/abs/1111.4144
-            upper = scipy.linalg.cholesky(hessian)
+            chol_fail = False
             try:
-                upper_inv = np.linalg.inv(upper)
+                upper = scipy.linalg.cholesky(hessian)
             except linalg.LinAlgError:
-                upper_inv = np.linalg.pinv(upper)
+                print('Hessian not positive definite')
+                chol_fail = True
 
-            # We have that:
-            self.Sigma_ = np.dot(upper_inv, upper_inv.conjugate().T)
+            if chol_fail:
+                try:
+                    self.Sigma_ = np.linalg.inv(hessian)
+                except linalg.LinAlgError:
+                    self.Sigma_ = np.linalg.pinv(hessian)
 
-            self.mu_ = (upper_inv @ (upper_inv.conjugate().T @ self.Phi_.T @ y)) * self.beta_
+                self.mu_ = self.beta_ * (self.Sigma_ @ self.Phi_.T @ y)
+                sigma_diag = np.diag(self.Sigma_)
 
-            # Equivalent sigma_diag = np.diag(self.Sigma_)
-            sigma_diag = np.sum(upper_inv ** 2, axis=1)
+            else:
+                try:
+                    upper_inv = np.linalg.inv(upper)
+                except linalg.LinAlgError:
+                    upper_inv = np.linalg.pinv(upper)
+
+                # We have that:
+                self.Sigma_ = np.dot(upper_inv, upper_inv.conjugate().T)
+
+                self.mu_ = (upper_inv @ (upper_inv.conjugate().T @ self.Phi_.T @ y)) * self.beta_
+
+                # Equivalent sigma_diag = np.diag(self.Sigma_)
+                sigma_diag = np.sum(upper_inv ** 2, axis=1)
 
             # Well-determinedness parameters (gamma)
             self.gamma_ = 1 - self.alpha_ * sigma_diag
@@ -269,9 +285,10 @@ class EMRVR(RegressorMixin):
             self.beta_ = (n_samples - np.sum(self.gamma_)) / ed
 
             # Compute marginal likelihood
-            if self.compute_score:
-                ll = self.compute_marginal_likelihood(upper_inv, ed, n_samples, y)
-                self.scores_.append(ll)
+            if not chol_fail:
+                if self.compute_score:
+                    ll = self.compute_marginal_likelihood(upper_inv, ed, n_samples, y)
+                    self.scores_.append(ll)
 
             # Prune based on large values of alpha
             self._prune()
