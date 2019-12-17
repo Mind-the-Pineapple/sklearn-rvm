@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn import datasets
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn_rvm import RVR
+from sklearn_rvm import EMRVR
 
 # Load the diabetes dataset
 diabetes_X, diabetes_y = datasets.load_diabetes(return_X_y=True)

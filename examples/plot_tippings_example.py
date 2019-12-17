@@ -13,7 +13,7 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 
-from sklearn_rvm import RVR
+from sklearn_rvm import EMRVR
 
 np.random.seed(1)
 dimension = 1

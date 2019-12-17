@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from sklearn.svm import SVR
-from sklearn_rvm import RVR
+from sklearn_rvm import EMRVR
 
 # TODO:  Chear erro com esse
 # np.random.seed(0)

@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from scipy import stats
 
 from sklearn.linear_model import ARDRegression
-from sklearn_rvm import RVR
+from sklearn_rvm import EMRVR
 
 
 # #############################################################################

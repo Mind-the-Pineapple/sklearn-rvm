@@ -2,10 +2,10 @@ import pytest
 
 from sklearn.utils.estimator_checks import check_estimator
 
-from sklearn_rvm import RVR, RVC, EMRVR
+from sklearn_rvm import EMRVR
 
 @pytest.mark.parametrize(
-    "Estimator", [RVR, RVC, EMRVR]
+    "Estimator", [EMRVR]
 )
 def test_all_estimators(Estimator):
     return check_estimator(Estimator)
