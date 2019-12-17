@@ -10,15 +10,93 @@ https://github.com/ctgk/PRML/blob/master/prml/kernel/relevance_vector_regressor.
 #         Walter Hugo Lopez Pinaya
 # License: BSD 3 clause
 import warnings
+from abc import abstractmethod
 
 import numpy as np
 from numpy import linalg
-from sklearn.base import RegressorMixin
+from sklearn.base import RegressorMixin, BaseEstimator
 from sklearn.utils.validation import check_X_y, check_is_fitted, check_array
 from sklearn.metrics.pairwise import pairwise_kernels
 import scipy.linalg
 
-class EMRVR(RegressorMixin):
+
+class BaseRVM(BaseEstimator):
+    """Basic class for Relevance Vector Machine."""
+
+    @abstractmethod
+    def __init__(self, kernel, degree, gamma, coef0, tol, threshold_alpha,
+                 alpha_max, init_alpha, bias_used, max_iter, verbose,
+                 compute_score):
+
+        if gamma == 0:
+            msg = ("The gamma value of 0.0 is invalid. Use 'auto' to set"
+                   " gamma to a value of 1 / n_features.")
+            raise ValueError(msg)
+
+        self.kernel = kernel
+        self.degree = degree
+        self.gamma = gamma
+        self.coef0 = coef0
+        self.tol = tol
+        self.threshold_alpha = threshold_alpha
+        self.compute_score = compute_score
+        self.max_iter = max_iter
+        self.verbose = verbose
+        self.bias_used = bias_used
+        self.alpha_max = alpha_max
+        self.init_alpha = init_alpha
+
+    def _get_kernel(self, X, Y=None):
+        """Calculates kernelised features"""
+        if callable(self.kernel):
+            params = self.kernel_params or {}
+        else:
+            params = {"gamma": self._gamma,
+                      "degree": self.degree,
+                      "coef0": self.coef0}
+            return pairwise_kernels(X, Y, metric=self.kernel,
+                                    filter_params=True, **params)
+
+    def _prune(self):
+        """Remove basis functions based on alpha values."""
+        keep_alpha = self.alpha_ < self.threshold_alpha
+
+        if not np.any(keep_alpha):
+            keep_alpha[0] = True
+
+        if self.bias_used:
+            if not keep_alpha[0]:
+                self.bias_used = False
+            if self.kernel != 'precomputed':
+                self.relevance_vectors_ = self.relevance_vectors_[
+                    keep_alpha[1:]]
+            self.relevance_ = self.relevance_[keep_alpha[1:]]
+        else:
+            if self.kernel != 'precomputed':
+                self.relevance_vectors_ = self.relevance_vectors_[keep_alpha]
+            self.relevance_ = self.relevance_[keep_alpha]
+
+        self.alpha_ = self.alpha_[keep_alpha]
+        self._alpha_old = self._alpha_old[keep_alpha]
+        self.gamma_ = self.gamma_[keep_alpha]
+        self.Phi_ = self.Phi_[:, keep_alpha]
+        self.Sigma_ = self.Sigma_[np.ix_(keep_alpha, keep_alpha)]
+        self.mu_ = self.mu_[keep_alpha]
+
+    @property
+    def coef_(self):
+        if self.kernel != 'linear':
+            raise AttributeError(
+                'coef_ is only available when using a linear kernel')
+
+        coef = self._get_coef()
+        return coef
+
+    def _get_coef(self):
+            return np.dot(self.mu_, self.relevance_vectors_)
+
+
+class EMRVR(RegressorMixin, BaseRVM):
     """Relevance Vector Regressor.
 
     Parameters
@@ -93,88 +171,29 @@ class EMRVR(RegressorMixin):
 
     """
 
-    def __init__(self, kernel='rbf', degree=3, gamma='auto_deprecated', coef0=0.0,
-                 tol=1e-3, threshold_alpha=1e5, alpha_max=1e9, init_alpha=None, bias_used=True,
-                 max_iter=5000, verbose=False, compute_score=False):
+    def __init__(self, kernel='rbf', degree=3, gamma='auto_deprecated',
+                 coef0=0.0, tol=1e-3, threshold_alpha=1e5, alpha_max=1e9,
+                 init_alpha=None, bias_used=True, max_iter=5000, verbose=False,
+                 compute_score=False):
 
-        if gamma == 0:
-            msg = ("The gamma value of 0.0 is invalid. Use 'auto' to set"
-                   " gamma to a value of 1 / n_features.")
-            raise ValueError(msg)
-
-        self.kernel = kernel
-        self.degree = degree
-        self.gamma = gamma
-        self.coef0 = coef0
-        self.tol = tol
-        self.threshold_alpha = threshold_alpha
-        self.compute_score = compute_score
-        self.max_iter = max_iter
-        self.verbose = verbose
-        self.bias_used = bias_used
-        self.alpha_max = alpha_max
-        self.init_alpha = init_alpha
-
-    @property
-    def _pairwise(self):
-        return self.kernel == "precomputed"
-
-    @property
-    def coef_(self):
-        if self.kernel != 'linear':
-            raise AttributeError('coef_ is only available when using a linear kernel')
-
-        coef = self._get_coef()
-        return coef
-
-    def _get_coef(self):
-        return np.dot(self.mu_, self.relevance_vectors_)
-
-    def _get_kernel(self, X, Y=None):
-        """Calculates kernelised features"""
-        if callable(self.kernel):
-            params = self.kernel_params or {}
-        else:
-            params = {"gamma": self._gamma,
-                      "degree": self.degree,
-                      "coef0": self.coef0}
-        return pairwise_kernels(X, Y, metric=self.kernel,
-                                filter_params=True, **params)
-
-    def _prune(self):
-        """Remove basis functions based on alpha values."""
-        keep_alpha = self.alpha_ < self.threshold_alpha
-
-        if not np.any(keep_alpha):
-            keep_alpha[0] = True
-
-        if self.bias_used:
-            if not keep_alpha[0]:
-                self.bias_used = False
-            is self.kernel != 'precomputed':
-                self.relevance_vectors_ = self.relevance_vectors_[keep_alpha[1:]]
-            self.relevance_ = self.relevance_[keep_alpha[1:]]
-        else:
-            if self.kernel != 'precomputed':
-                self.relevance_vectors_ = self.relevance_vectors_[keep_alpha]
-            self.relevance_ = self.relevance_[keep_alpha]
-
-        self.alpha_ = self.alpha_[keep_alpha]
-        self._alpha_old = self._alpha_old[keep_alpha]
-        self.gamma_ = self.gamma_[keep_alpha]
-        self.Phi_ = self.Phi_[:, keep_alpha]
-        self.Sigma_ = self.Sigma_[np.ix_(keep_alpha, keep_alpha)]
-        self.mu_ = self.mu_[keep_alpha]
+        super().__init__(
+            kernel=kernel, degree=degree, gamma=gamma, coef0=coef0, tol=tol,
+            threshold_alpha=threshold_alpha, alpha_max=alpha_max,
+            init_alpha=init_alpha, bias_used=bias_used, max_iter=max_iter,
+            verbose=verbose, compute_score=compute_score)
 
     def compute_marginal_likelihood(self, upper_inv, ed, n_samples, y):
         """Calculates marginal likelihood."""
         dataLikely = (n_samples * np.log(self.beta_) - self.beta_ * ed) / 2
         logdetH = -2 * np.sum(np.log(np.diag(upper_inv)))
-        marginal = dataLikely - 0.5 * (logdetH - np.sum(np.log(self.alpha_)) + (self.mu_ ** 2).T @ self.alpha_)
+        marginal = dataLikely - 0.5 * (
+                    logdetH - np.sum(np.log(self.alpha_)) + (
+                        self.mu_ ** 2).T @ self.alpha_)
         return marginal
 
     def fit(self, X, y):
-        """Fit the SVM model according to the given training data.
+        """Fit the RVR model according to the given training data.
+
         Parameters
         ----------
         X : array-like, shape (n_samples, n_features)
@@ -183,12 +202,14 @@ class EMRVR(RegressorMixin):
         y : array-like, shape (n_samples,)
             Target values (class labels in classification, real numbers in
             regression)
+
         Returns
         -------
         self : object
         """
 
-        X, y = check_X_y(X, y, y_numeric=True, ensure_min_samples=2, dtype='float64')
+        X, y = check_X_y(X, y, y_numeric=True, ensure_min_samples=2,
+                         dtype='float64')
 
         if self.kernel == "precomputed" and X.shape[0] != X.shape[1]:
             raise ValueError("X.shape[0] should be equal to X.shape[1]")
@@ -226,16 +247,17 @@ class EMRVR(RegressorMixin):
 
         # Scale Phi based on PRoNTO implementation
         # http://www.mlnl.cs.ucl.ac.uk/pronto/
-        self.scale = np.sqrt(np.sum(self.Phi_) / n_samples**2)
-        self.Phi_ = self.Phi_ / scale
+        self._scale = np.sqrt(np.sum(self.Phi_) / n_samples ** 2)
+        self.Phi_ = self.Phi_ / self._scale
 
         if self.bias_used:
             self.Phi_ = np.hstack((np.ones((n_samples, 1)), self.Phi_))
 
-            
         M = self.Phi_.shape[1]
+
         if self.init_alpha == None:
             self.init_alpha = 1 / M ** 2
+
         self.relevance_ = np.array(range(n_samples))
         if self.kernel != 'precomputed':
             self.relevance_vectors_ = X
@@ -261,7 +283,7 @@ class EMRVR(RegressorMixin):
             try:
                 upper = scipy.linalg.cholesky(hessian)
             except linalg.LinAlgError:
-                print('Hessian not positive definite')
+                warnings.warn('Hessian not positive definite')
                 chol_fail = True
 
             if chol_fail:
@@ -277,12 +299,13 @@ class EMRVR(RegressorMixin):
                 try:
                     upper_inv = np.linalg.inv(upper)
                 except linalg.LinAlgError:
+                    warnings.warn('Using Pseudo-Inverse')
                     upper_inv = np.linalg.pinv(upper)
 
-                # We have that:
                 self.Sigma_ = np.dot(upper_inv, upper_inv.conjugate().T)
 
-                self.mu_ = (upper_inv @ (upper_inv.conjugate().T @ self.Phi_.T @ y)) * self.beta_
+                self.mu_ = (upper_inv @ (
+                        upper_inv.conjugate().T @ self.Phi_.T @ y)) * self.beta_
 
                 # Equivalent sigma_diag = np.diag(self.Sigma_)
                 sigma_diag = np.sum(upper_inv ** 2, axis=1)
@@ -293,41 +316,48 @@ class EMRVR(RegressorMixin):
             # Alpha re-estimation
             # MacKay-style update for alpha given in original NIPS paper
             self.alpha_ = self.gamma_ / (self.mu_ ** 2)
+            # Prediction error
             ed = (np.sum((y - self.Phi_ @ self.mu_) ** 2))
             self.beta_ = (n_samples - np.sum(self.gamma_)) / ed
 
             # Compute marginal likelihood
             if not chol_fail:
                 if self.compute_score:
-                    ll = self.compute_marginal_likelihood(upper_inv, ed, n_samples, y)
+                    ll = self.compute_marginal_likelihood(upper_inv, ed,
+                                                          n_samples, y)
                     self.scores_.append(ll)
 
             # Passes on variable information on each iteration
             if self.verbose:
-                print("Iteration: {}".format(i))
-                print("Alpha: {}".format(self.alpha_))
-                print("Beta: {}".format(self.beta_))
-                print("Gamma: {}".format(self.gamma_))
-                print("m: {}".format(self.mu_))
-                print("Relevance Vectors: {}".format(self.relevance_.shape[0]))
+                print('Iteration: {}'.format(i))
+                print('Alpha: {}'.format(self.alpha_))
+                print('Beta: {}'.format(self.beta_))
+                print('Gamma: {}'.format(self.gamma_))
+                print('mu: {}'.format(self.mu_))
+                print('Relevance Vectors: {}'.format(self.relevance_.shape[0]))
+                if self.compute_score:
+                    print('Marginal Likelihood: {}'.format(ll))
                 print()
 
             # Prune based on large values of alpha
             self._prune()
 
             # Terminate if the largest alpha change is smaller than threshold
-            delta = np.amax(np.absolute(np.log(self.alpha_) - np.log(self._alpha_old)))
+            delta = np.amax(
+                np.absolute(np.log(self.alpha_) - np.log(self._alpha_old)))
             if delta < self.tol and i > 1:
                 break
 
             self._alpha_old = self.alpha_.copy()
 
     def predict(self, X, return_std=False):
-        """Predict using the linear model.
+        """Predict using the RVR model.
 
         In addition to the mean of the predictive distribution, also its
         standard deviation can be returned.
 
+        Parameters
+        ----------
         X : array-like, shape = (n_samples, n_features)
             Query points where the GP is evaluated
 
@@ -345,7 +375,7 @@ class EMRVR(RegressorMixin):
             Only returned when return_std is True.
         """
         # Check is fit had been called
-        check_is_fitted(self, ['relevance_vectors_', 'mu_', 'Sigma_'])
+        check_is_fitted(self, ['relevance_', 'mu_', 'Sigma_'])
 
         X = check_array(X)
 
@@ -353,7 +383,9 @@ class EMRVR(RegressorMixin):
         if self.kernel != 'precomputed':
             K = self._get_kernel(X, self.relevance_vectors_)
         else:
-            K = X[:,self.relevance_] / self.scale
+            K = X[:, self.relevance_]
+        K = K / self._scale
+
         if self.bias_used:
             K = np.hstack((np.ones((n_samples, 1)), K))
 
