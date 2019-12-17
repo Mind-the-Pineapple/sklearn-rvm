@@ -221,9 +221,10 @@ class EMRVR(RegressorMixin):
 
         n_samples = X.shape[0]
         self.Phi_ = self._get_kernel(X)
+
         if self.bias_used:
             self.Phi_ = np.hstack((np.ones((n_samples, 1)), self.Phi_))
-
+            
         M = self.Phi_.shape[1]
         if self.init_alpha == None:
             self.init_alpha = 1 / M ** 2
@@ -289,6 +290,16 @@ class EMRVR(RegressorMixin):
                 if self.compute_score:
                     ll = self.compute_marginal_likelihood(upper_inv, ed, n_samples, y)
                     self.scores_.append(ll)
+
+            # Passes on variable information on each iteration
+            if self.verbose:
+                print("Iteration: {}".format(i))
+                print("Alpha: {}".format(self.alpha_))
+                print("Beta: {}".format(self.beta_))
+                print("Gamma: {}".format(self.gamma_))
+                print("m: {}".format(self.mu_))
+                print("Relevance Vectors: {}".format(self.relevance_.shape[0]))
+                print()
 
             # Prune based on large values of alpha
             self._prune()
