@@ -224,6 +224,12 @@ class EMRVR(RegressorMixin):
 
         if self.bias_used:
             self.Phi_ = np.hstack((np.ones((n_samples, 1)), self.Phi_))
+
+        # Scale Phi based on PRoNTO implementation
+        # http://www.mlnl.cs.ucl.ac.uk/pronto/
+        scale = np.sqrt(np.sum(self.Phi_) / n_samples**2)
+        scale = np.vstack((1, np.ones((n_samples, 1)) * scale))
+        self.Phi_ = self.Phi_ / scale.T
             
         M = self.Phi_.shape[1]
         if self.init_alpha == None:
