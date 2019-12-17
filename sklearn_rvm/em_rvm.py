@@ -151,10 +151,12 @@ class EMRVR(RegressorMixin):
         if self.bias_used:
             if not keep_alpha[0]:
                 self.bias_used = False
-            self.relevance_vectors_ = self.relevance_vectors_[keep_alpha[1:]]
+            is self.kernel != 'precomputed':
+                self.relevance_vectors_ = self.relevance_vectors_[keep_alpha[1:]]
             self.relevance_ = self.relevance_[keep_alpha[1:]]
         else:
-            self.relevance_vectors_ = self.relevance_vectors_[keep_alpha]
+            if self.kernel != 'precomputed':
+                self.relevance_vectors_ = self.relevance_vectors_[keep_alpha]
             self.relevance_ = self.relevance_[keep_alpha]
 
         self.alpha_ = self.alpha_[keep_alpha]
@@ -226,7 +228,7 @@ class EMRVR(RegressorMixin):
         # http://www.mlnl.cs.ucl.ac.uk/pronto/
         self.scale = np.sqrt(np.sum(self.Phi_) / n_samples**2)
         self.Phi_ = self.Phi_ / scale
-        
+
         if self.bias_used:
             self.Phi_ = np.hstack((np.ones((n_samples, 1)), self.Phi_))
 
@@ -235,7 +237,10 @@ class EMRVR(RegressorMixin):
         if self.init_alpha == None:
             self.init_alpha = 1 / M ** 2
         self.relevance_ = np.array(range(n_samples))
-        self.relevance_vectors_ = X
+        if self.kernel != 'precomputed':
+            self.relevance_vectors_ = X
+        else:
+            self.relevance_vectors_ = None
 
         # Initialize beta (1 / sigma squared)
         sigma_squared = (max(1e-6, np.std(y) * 0.1) ** 2)
