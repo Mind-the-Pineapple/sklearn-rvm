@@ -732,9 +732,10 @@ class EMRVC(BaseRVM, ClassifierMixin):
             self.multi_.fit(X, y)
             return self
 
-    def predict_proba(self, X):
+    def predict_proba(self, Phi_):
         """Return an array of class probabilities."""
-        pass
+        y = self._classify(self.m_, Phi_)
+        return np.column_stack((1 - y, y))
 
     def predict(self, X, return_std=False):
         """Predict using the RVC model.
@@ -760,11 +761,30 @@ class EMRVC(BaseRVM, ClassifierMixin):
             Standard deviation of predictive distribution at query points.
             Only returned when return_std is True.
         """
+        # Check is fit had been called
+        check_is_fitted(self, ["relevance_", "mu_", "Sigma_"])
+
+        X = check_array(X)
+
+        n_samples = X.shape[0]
+
+        K = self._get_kernel(X, self.relevance_vectors_)
+        K = K / self._scale
+
+        if self.bias_used:
+            K = np.hstack((np.ones((n_samples, 1)), K))
+
         if len(self.classes_) == 2:
-            y = self.predict_proba(X)
+            y = self.predict_proba(K)
+
             results = np.empty(y.shape[0], dtype=self.classes_.dtype)
             results[y[:, 1] <= 0.5] = self.classes_[0]
             results[y[:, 1] >= 0.5] = self.classes_[1]
-            return results
+            if return_std is False:
+                return results
+            else:
+                err_var = (1 / self.beta_) + K @ self.Sigma_ @ K.T
+                y_std = np.sqrt(np.diag(err_var))
+            return results, y_std
         else:
-            return self.multi_.predict(X)
+            return self.multi_.predict(K)
