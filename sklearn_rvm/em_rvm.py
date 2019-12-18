@@ -28,8 +28,8 @@ class BaseRVM(BaseEstimator):
 
     @abstractmethod
     def __init__(self, kernel, degree, gamma, coef0, tol, threshold_alpha,
-                 alpha_max, init_alpha, bias_used, max_iter, verbose,
-                 compute_score):
+                 beta_fixed, alpha_max, init_alpha, bias_used,
+                 max_iter, compute_score, verbose):
 
         if gamma == 0:
             msg = ("The gamma value of 0.0 is invalid. Use 'auto' to set"
@@ -42,12 +42,13 @@ class BaseRVM(BaseEstimator):
         self.coef0 = coef0
         self.tol = tol
         self.threshold_alpha = threshold_alpha
-        self.compute_score = compute_score
-        self.max_iter = max_iter
-        self.verbose = verbose
-        self.bias_used = bias_used
+        self.beta_fixed = beta_fixed
         self.alpha_max = alpha_max
         self.init_alpha = init_alpha
+        self.bias_used = bias_used
+        self.max_iter = max_iter
+        self.compute_score = compute_score
+        self.verbose = verbose
 
     def _get_kernel(self, X, Y=None):
         """Calculates kernelised features"""
@@ -179,15 +180,16 @@ class EMRVR(RegressorMixin, BaseRVM):
     """
 
     def __init__(self, kernel="rbf", degree=3, gamma="auto_deprecated",
-                 coef0=0.0, tol=1e-3, threshold_alpha=1e5, alpha_max=1e9,
-                 init_alpha=None, bias_used=True, max_iter=5000, verbose=False,
-                 compute_score=False):
+                 coef0=0.0, tol=1e-3, threshold_alpha=1e5,
+                 beta_fixed="not_fixed", alpha_max=1e9, init_alpha=None,
+                 bias_used=True, max_iter=5000, compute_score=False,
+                 verbose=False):
 
         super().__init__(
             kernel=kernel, degree=degree, gamma=gamma, coef0=coef0, tol=tol,
-            threshold_alpha=threshold_alpha, alpha_max=alpha_max,
-            init_alpha=init_alpha, bias_used=bias_used, max_iter=max_iter,
-            verbose=verbose, compute_score=compute_score)
+            threshold_alpha=threshold_alpha, beta_fixed=beta_fixed,
+            alpha_max=alpha_max, init_alpha=init_alpha, bias_used=bias_used,
+            max_iter=max_iter, compute_score=compute_score, verbose=verbose)
 
     def compute_marginal_likelihood(self, upper_inv, ed, n_samples, y):
         """Calculates marginal likelihood."""
@@ -272,8 +274,11 @@ class EMRVR(RegressorMixin, BaseRVM):
             self.relevance_vectors_ = None
 
         # Initialize beta (1 / sigma squared)
-        sigma_squared = (max(1e-6, np.std(y) * 0.1) ** 2)
-        self.beta_ = 1 / sigma_squared
+        if self.beta_fixed == "not_fixed":
+            sigma_squared = (max(1e-6, np.std(y) * 0.1) ** 2)
+            self.beta_ = 1 / sigma_squared
+        else:
+            self.beta_ = self.beta_fixed
 
         self.alpha_ = self.init_alpha * np.ones(M)
 
@@ -324,9 +329,10 @@ class EMRVR(RegressorMixin, BaseRVM):
             # MacKay-style update for alpha given in original NIPS paper
             self.alpha_ = self.gamma_ / (self.mu_ ** 2)
 
-            # Prediction error
-            ed = (np.sum((y - self.Phi_ @ self.mu_) ** 2))
-            self.beta_ = (n_samples - np.sum(self.gamma_)) / ed
+            if self.beta_fixed == "not_fixed":
+                # Prediction error
+                ed = (np.sum((y - self.Phi_ @ self.mu_) ** 2))
+                self.beta_ = (n_samples - np.sum(self.gamma_)) / ed
 
             # Compute marginal likelihood
             if not chol_fail:
@@ -486,15 +492,17 @@ class EMRVC(BaseRVM, ClassifierMixin):
 
     def __init__(self, n_iter_posterior=50, kernel="rbf", degree=3,
                  gamma="auto_deprecated", coef0=0.0, tol=1e-3,
-                 threshold_alpha=1e5, alpha_max=1e9, init_alpha=None,
-                 bias_used=True, max_iter=5000, verbose=False,
-                 compute_score=False):
+                 threshold_alpha=1e5, beta_fixed="not_fixed", alpha_max=1e9,
+                 init_alpha=None, bias_used=True, max_iter=5000,
+                 compute_score=False, verbose=False):
+
         self.n_iter_posterior = n_iter_posterior
+
         super().__init__(
             kernel=kernel, degree=degree, gamma=gamma, coef0=coef0, tol=tol,
-            threshold_alpha=threshold_alpha, alpha_max=alpha_max,
-            init_alpha=init_alpha, bias_used=bias_used, max_iter=max_iter,
-            verbose=verbose, compute_score=compute_score)
+            threshold_alpha=threshold_alpha, beta_fixed=beta_fixed,
+            alpha_max=alpha_max, init_alpha=init_alpha, bias_used=bias_used,
+            max_iter=max_iter, compute_score=compute_score, verbose=verbose)
 
     def _classify(self, mu, Phi_):
         """ Perform Sigmoid Classification."""
@@ -626,7 +634,11 @@ class EMRVC(BaseRVM, ClassifierMixin):
             else:
                 self.relevance_vectors_ = None
 
-            self.beta_ = self.beta
+            if self.beta_fixed == "not_fixed":
+                # Suggested in the paper [1].
+                self.beta_ = 1e-6
+            else:
+                self.beta_ = self.beta_fixed
 
             self.mu_ = np.zeros(M)
 
