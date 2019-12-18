@@ -570,11 +570,9 @@ class EMRVC(BaseRVM, ClassifierMixin):
                     self._gamma = 1.0 / (X.shape[1] * X_var)
                 else:
                     self._gamma = 1.0
-
             else:
-                kernel_uses_gamma = (
-                        not callable(self.kernel) and self.kernel
-                        not in ("linear", "precomputed"))
+                kernel_uses_gamma = (not callable(self.kernel) and self.kernel
+                                     not in ("linear", "precomputed"))
                 if kernel_uses_gamma and not np.isclose(X_var, 1.0):
                     # NOTE: when deprecation ends we need to remove explicitly
                     # setting `gamma` in examples (also in tests). See
@@ -585,8 +583,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
                                   "account better for unscaled features. Set "
                                   "gamma explicitly to 'auto' or 'scale' to "
                                   "avoid this warning.", FutureWarning)
-
-                    self._gamma = 1.0 / X.shape[1]
+                self._gamma = 1.0 / X.shape[1]
         elif self.gamma == 'auto':
             self._gamma = 1.0 / X.shape[1]
         else:
