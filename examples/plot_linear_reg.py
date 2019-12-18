@@ -38,7 +38,7 @@ diabetes_y_train = diabetes_y[:-20]
 diabetes_y_test = diabetes_y[-20:]
 
 # Create regression object
-regr = RVR('linear')
+regr = EMRVR('linear')
 
 # Train the model using the training sets
 regr.fit(diabetes_X_train, diabetes_y_train)

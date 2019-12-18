@@ -36,7 +36,7 @@ svr.fit(X, y)
 print("Time for SVR fitting: %.3f" % (time.time() - stime))
 
 # Fit RVR
-rvr = RVR(kernel='rbf')
+rvr = EMRVR(kernel='rbf')
 stime = time.time()
 rvr.fit(X, y)
 print("Time for RVR fitting: %.3f" % (time.time() - stime))

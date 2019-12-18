@@ -28,7 +28,7 @@ def create_toy_data(n=10):
 x_train, y_train = create_toy_data(n=50)
 x = np.linspace(0, 1, 100)
 
-model = RVR(kernel='rbf')
+model = EMRVR(kernel='rbf')
 model.fit(x_train[:, None], y_train)
 
 y, y_std = model.predict(x[:, None], return_std=True)

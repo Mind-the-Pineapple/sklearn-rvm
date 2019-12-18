@@ -64,7 +64,7 @@ z = basis @ w
 noise = np.std(z) * noise_to_signal
 outputs = z + noise * np.random.randn(N)
 
-rvr = RVR(kernel='precomputed', compute_score=True)
+rvr = EMRVR(kernel='precomputed', compute_score=True)
 rvr.fit(basis, outputs)
 
 w_infer = np.zeros((M, 1))

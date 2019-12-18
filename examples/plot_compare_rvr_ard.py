@@ -39,7 +39,7 @@ y = np.dot(X, w) + noise
 clf = ARDRegression(compute_score=True)
 clf.fit(X, y)
 
-rvr = RVR(kernel='linear')
+rvr = EMRVR(kernel='linear')
 rvr.fit(X, y)
 
 # #############################################################################
