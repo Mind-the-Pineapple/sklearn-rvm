@@ -685,7 +685,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
 
             self.alpha_ = self.init_alpha * np.ones(M)
 
-            self.alpha_old = self.alpha_
+            self._alpha_old = self.alpha_.copy()
 
             for i in range(self.max_iter):
                 self._posterior()
@@ -722,7 +722,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
                 if delta < self.tol and i > 1:
                     break
 
-                self.alpha_old = self.alpha_.copy()
+                self._alpha_old = self.alpha_.copy()
 
             return self
 
