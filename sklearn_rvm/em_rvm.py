@@ -732,36 +732,8 @@ class EMRVC(BaseRVM, ClassifierMixin):
             self.multi_.fit(X, y)
             return self
 
-    def predict_proba(self, Phi_):
+    def predict_proba(self, X):
         """Return an array of class probabilities."""
-        y = self._classify(self.mu_, Phi_)
-        return np.column_stack((1 - y, y))
-
-    def predict(self, X, return_std=False):
-        """Predict using the RVC model.
-
-        In addition to the mean of the predictive distribution, also its
-        standard deviation can be returned.
-
-        Parameters
-        ----------
-        X : array-like, shape = (n_samples, n_features)
-            Query points where the GP is evaluated
-
-        return_std : bool, default: False
-            If True, the standard-deviation of the predictive distribution at
-            the query points is returned along with the mean.
-
-        Returns
-        -------
-        results : array, shape = (n_samples, [n_output_dims])
-            Mean of predictive distribution a query points
-
-        y_std : array, shape = (n_samples,), optional
-            Standard deviation of predictive distribution at query points.
-            Only returned when return_std is True.
-        """
-        # Check is fit had been called
         check_is_fitted(self, ["relevance_", "mu_", "Sigma_"])
 
         X = check_array(X)
@@ -774,17 +746,36 @@ class EMRVC(BaseRVM, ClassifierMixin):
         if self.bias_used:
             K = np.hstack((np.ones((n_samples, 1)), K))
 
+        y = self._classify(self.mu_, K)
+        return np.column_stack((1 - y, y))
+
+    def predict(self, X):
+        """Predict using the RVC model.
+
+        In addition to the mean of the predictive distribution, also its
+        standard deviation can be returned.
+
+        Parameters
+        ----------
+        X : array-like, shape = (n_samples, n_features)
+            Query points where the GP is evaluated
+
+        Returns
+        -------
+        results : array, shape = (n_samples, [n_output_dims])
+            Mean of predictive distribution a query points
+
+        """
+        # Check is fit had been called
+        check_is_fitted(self, ["relevance_", "mu_", "Sigma_"])
+
         if len(self.classes_) == 2:
-            y = self.predict_proba(K)
+            y = self.predict_proba(X)
 
             results = np.empty(y.shape[0], dtype=self.classes_.dtype)
             results[y[:, 1] <= 0.5] = self.classes_[0]
             results[y[:, 1] >= 0.5] = self.classes_[1]
-            if return_std is False:
-                return results
-            else:
-                err_var = (1 / self.beta_) + K @ self.Sigma_ @ K.T
-                y_std = np.sqrt(np.diag(err_var))
-            return results, y_std
+            return results
+
         else:
-            return self.multi_.predict(K)
+            return self.multi_.predict(X)
