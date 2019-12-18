@@ -538,7 +538,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
 
         return log_p, jacobian
 
-    def _hessian(self, mu, alpha, Phi_, t):
+    def _compute_hessian(self, mu, alpha, Phi_):
         """ Perform the Inverse of Covariance"""
         y = self._classify(mu, Phi_)
         B = np.diag(y * (1 - y))
@@ -548,9 +548,9 @@ class EMRVC(BaseRVM, ClassifierMixin):
         """ Calculates the posterior likelihood."""
         result = minimize(
             fun=self._log_posterior,
-            hess=self._hessian,
+            hess=self._compute_hessian,
             x0=self.mu_,
-            args=(self.alpha_, self.Phi_, self.t),
+            args=(self.alpha_, self.Phi_),
             method="Newton-CG",
             jac=True,
             options={
@@ -561,11 +561,11 @@ class EMRVC(BaseRVM, ClassifierMixin):
         self.mu_ = result.x
         try:
             self.Sigma_ = np.linalg.inv(
-                self._hessian(self.mu_, self.alpha_, self.Phi_, self.t))
+                self._compute_hessian(self.mu_, self.alpha_, self.Phi_))
         except linalg.LinAlgError:
             warnings.warn("Using Pseudo-Inverse")
             self.Sigma_ = np.linalg.pinv(
-                self._hessian(self.mu_, self.alpha_, self.Phi_, self.t))
+                self._compute_hessian(self.mu_, self.alpha_, self.Phi_))
 
     def fit(self, X, y):
         """Fit the RVC model according to the given training data.
