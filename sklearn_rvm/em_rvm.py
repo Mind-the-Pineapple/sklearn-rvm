@@ -737,11 +737,10 @@ class EMRVC(BaseRVM, ClassifierMixin):
         check_is_fitted(self, ["relevance_", "mu_", "Sigma_"])
 
         if len(self.classes_) == 2:
-            K = self._get_kernel(X, self.relevance_vectors_)
             X = check_array(X)
-
             n_samples = X.shape[0]
 
+            K = self._get_kernel(X, self.relevance_vectors_)
             K = K / self._scale
 
             if self.bias_used:
