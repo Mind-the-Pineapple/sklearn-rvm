@@ -539,7 +539,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
 
         return log_p, jacobian
 
-    def _compute_hessian(self, mu, alpha, Phi_):
+    def _compute_hessian(self, mu, alpha, Phi_, t):
         """ Perform the Inverse of Covariance"""
         y = self._classify(mu, Phi_)
         B = np.diag(y * (1 - y))
@@ -551,7 +551,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
             fun=self._log_posterior,
             hess=self._compute_hessian,
             x0=self.mu_,
-            args=(self.alpha_, self.Phi_),
+            args=(self.alpha_, self.Phi_, self.t),
             method="Newton-CG",
             jac=True,
             options={
@@ -561,7 +561,8 @@ class EMRVC(BaseRVM, ClassifierMixin):
 
         self.mu_ = result.x
 
-        hessian = self._compute_hessian(self.mu_, self.alpha_, self.Phi_)
+        hessian = self._compute_hessian(self.mu_, self.alpha_, self.Phi_,
+                                        self.t)
 
         # Calculate Sigma
         # Use Cholesky decomposition for efficiency
