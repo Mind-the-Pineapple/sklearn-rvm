@@ -177,6 +177,15 @@ class EMRVR(RegressorMixin, BaseRVM):
         `coef_` is a readonly property derived from `mu` and
         `relevance_vectors_`.
 
+    See also
+    --------
+    EMRVC
+        Relevant Vector Machine for Classification.
+
+    References
+    ----------
+    .. [1] `Tipping, Michael E (2000). "The relevance vector machine."
+    <http://http://papers.nips.cc/paper/1719-the-relevance-vector-machine.pdf>`
     """
 
     def __init__(self, kernel="rbf", degree=3, gamma="auto_deprecated",
@@ -488,6 +497,15 @@ class EMRVC(BaseRVM, ClassifierMixin):
         `coef_` is a readonly property derived from `mu` and
         `relevance_vectors_`.
 
+    See also
+    --------
+    EMRVR
+        Relevant Vector Machine for Regression.
+
+    References
+    ----------
+    .. [1] `Tipping, Michael E (2000). "The relevance vector machine."
+    <http://http://papers.nips.cc/paper/1719-the-relevance-vector-machine.pdf>`
     """
 
     def __init__(self, n_iter_posterior=50, kernel="rbf", degree=3,
