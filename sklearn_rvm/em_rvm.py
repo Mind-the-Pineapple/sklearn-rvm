@@ -17,7 +17,7 @@ from numpy import linalg
 from scipy.optimize import minimize
 from scipy.special import expit
 from sklearn.base import RegressorMixin, BaseEstimator, ClassifierMixin
-from sklearn.multiclass import OneVsOneClassifier
+from sklearn.multiclass import OneVsRestClassifier
 from sklearn.utils.validation import check_X_y, check_is_fitted, check_array
 from sklearn.metrics.pairwise import pairwise_kernels
 import scipy.linalg
@@ -728,7 +728,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
 
         else:
             self.multi_ = None
-            self.multi_ = OneVsOneClassifier(self)
+            self.multi_ = OneVsRestClassifier(self)
             self.multi_.fit(X, y)
             return self
 
@@ -736,18 +736,21 @@ class EMRVC(BaseRVM, ClassifierMixin):
         """Return an array of class probabilities."""
         check_is_fitted(self, ["relevance_", "mu_", "Sigma_"])
 
-        X = check_array(X)
+        if len(self.classes_) == 2:
+            K = self._get_kernel(X, self.relevance_vectors_)
+            X = check_array(X)
 
-        n_samples = X.shape[0]
+            n_samples = X.shape[0]
 
-        K = self._get_kernel(X, self.relevance_vectors_)
-        K = K / self._scale
+            K = K / self._scale
 
-        if self.bias_used:
-            K = np.hstack((np.ones((n_samples, 1)), K))
+            if self.bias_used:
+                K = np.hstack((np.ones((n_samples, 1)), K))
 
-        y = self._classify(self.mu_, K)
-        return np.column_stack((1 - y, y))
+            y = self._classify(self.mu_, K)
+            return np.column_stack((1 - y, y))
+        else:
+            return self.multi_.predict_proba(X)
 
     def predict(self, X):
         """Predict using the RVC model.
