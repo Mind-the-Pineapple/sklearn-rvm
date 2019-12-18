@@ -734,7 +734,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
 
     def predict_proba(self, Phi_):
         """Return an array of class probabilities."""
-        y = self._classify(self.m_, Phi_)
+        y = self._classify(self.mu_, Phi_)
         return np.column_stack((1 - y, y))
 
     def predict(self, X, return_std=False):
