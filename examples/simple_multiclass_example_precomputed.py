@@ -1,5 +1,7 @@
 from sklearn import datasets
 from sklearn.model_selection import train_test_split
+from sklearn.metrics.pairwise import pairwise_kernels
+
 from sklearn_rvm import EMRVC
 
 iris = datasets.load_iris()
@@ -10,9 +12,11 @@ class_names = iris.target_names
 # Split the data into a training set and a test set
 X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
 
-clf = EMRVC(kernel='linear')
-clf.fit(X_train, y_train)
+K = pairwise_kernels(X_train)
+clf = EMRVC(kernel='precomputed')
+clf.fit(K, y_train)
 
-print(clf.predict(X_test))
-print(clf.predict_proba(X_test))
-print(clf.score(X_test, y_test))
+K_test = pairwise_kernels(X_test, X_train)
+print(clf.predict(K_test))
+print(clf.predict_proba(K_test))
+print(clf.score(K_test, y_test))
