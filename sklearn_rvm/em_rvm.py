@@ -311,6 +311,7 @@ class EMRVR(RegressorMixin, BaseRVM):
                 try:
                     self.Sigma_ = np.linalg.inv(hessian)
                 except linalg.LinAlgError:
+                    warnings.warn("Using Pseudo-Inverse")
                     self.Sigma_ = np.linalg.pinv(hessian)
 
                 self.mu_ = self.beta_ * (self.Sigma_ @ self.Phi_.T @ y)
