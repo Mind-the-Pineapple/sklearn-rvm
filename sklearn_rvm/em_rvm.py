@@ -241,7 +241,7 @@ class EMRVR(RegressorMixin, BaseRVM):
                                   "account better for unscaled features. Set "
                                   "gamma explicitly to 'auto' or 'scale' to "
                                   "avoid this warning.", FutureWarning)
-                    self._gamma = 1.0 / X.shape[1]
+                self._gamma = 1.0 / X.shape[1]
         elif self.gamma == 'auto':
             self._gamma = 1.0 / X.shape[1]
         else:
