@@ -559,13 +559,34 @@ class EMRVC(BaseRVM, ClassifierMixin):
         )
 
         self.mu_ = result.x
+
+        hessian = self._compute_hessian(self.mu_, self.alpha_, self.Phi_)
+
+        # Calculate Sigma
+        # Use Cholesky decomposition for efficiency
+        # Ref: https://arxiv.org/abs/1111.4144
+        chol_fail = False
         try:
-            self.Sigma_ = np.linalg.inv(
-                self._compute_hessian(self.mu_, self.alpha_, self.Phi_))
+            upper = scipy.linalg.cholesky(hessian)
         except linalg.LinAlgError:
-            warnings.warn("Using Pseudo-Inverse")
-            self.Sigma_ = np.linalg.pinv(
-                self._compute_hessian(self.mu_, self.alpha_, self.Phi_))
+            warnings.warn("Hessian not positive definite")
+            chol_fail = True
+
+        if chol_fail:
+            try:
+                self.Sigma_ = np.linalg.inv(hessian)
+            except linalg.LinAlgError:
+                warnings.warn("Using Pseudo-Inverse")
+                self.Sigma_ = np.linalg.pinv(hessian)
+
+        else:
+            try:
+                upper_inv = np.linalg.inv(upper)
+            except linalg.LinAlgError:
+                warnings.warn("Using Pseudo-Inverse")
+                upper_inv = np.linalg.pinv(upper)
+
+            self.Sigma_ = np.dot(upper_inv, upper_inv.conjugate().T)
 
     def fit(self, X, y):
         """Fit the RVC model according to the given training data.
