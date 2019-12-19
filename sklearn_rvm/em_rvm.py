@@ -29,11 +29,11 @@ class BaseRVM(BaseEstimator):
     @abstractmethod
     def __init__(self, kernel, degree, gamma, coef0, tol, threshold_alpha,
                  beta_fixed, alpha_max, init_alpha, bias_used,
-                 max_iter, compute_score, verbose):
+                 max_iter, compute_score, epsilon, verbose):
 
         if gamma == 0:
             msg = ("The gamma value of 0.0 is invalid. Use 'auto' to set"
-            " gamma to a value of 1 / n_features.")
+                   " gamma to a value of 1 / n_features.")
             raise ValueError(msg)
 
         self.kernel = kernel
@@ -48,6 +48,7 @@ class BaseRVM(BaseEstimator):
         self.bias_used = bias_used
         self.max_iter = max_iter
         self.compute_score = compute_score
+        self.epsilon = epsilon
         self.verbose = verbose
 
     def _get_kernel(self, X, Y=None):
@@ -192,13 +193,14 @@ class EMRVR(RegressorMixin, BaseRVM):
                  coef0=0.0, tol=1e-3, threshold_alpha=1e5,
                  beta_fixed="not_fixed", alpha_max=1e9, init_alpha=None,
                  bias_used=True, max_iter=5000, compute_score=False,
-                 verbose=False):
+                 epsilon=1e-08, verbose=False):
 
         super().__init__(
             kernel=kernel, degree=degree, gamma=gamma, coef0=coef0, tol=tol,
             threshold_alpha=threshold_alpha, beta_fixed=beta_fixed,
             alpha_max=alpha_max, init_alpha=init_alpha, bias_used=bias_used,
-            max_iter=max_iter, compute_score=compute_score, verbose=verbose)
+            max_iter=max_iter, compute_score=compute_score, epsilon=epsilon,
+            verbose=verbose)
 
     def compute_marginal_likelihood(self, upper_inv, ed, n_samples, y):
         """Calculates marginal likelihood."""
@@ -337,12 +339,14 @@ class EMRVR(RegressorMixin, BaseRVM):
 
             # Alpha re-estimation
             # MacKay-style update for alpha given in original NIPS paper
-            self.alpha_ = self.gamma_ / (self.mu_ ** 2)
+            self.alpha_ = np.max(self.gamma_, self.epsilon) / (
+                    self.mu_ ** 2) + self.epsilon
 
             if self.beta_fixed == "not_fixed":
                 # Prediction error
-                ed = (np.sum((y - self.Phi_ @ self.mu_) ** 2))
-                self.beta_ = (n_samples - np.sum(self.gamma_)) / ed
+                ed = np.sum((y - self.Phi_ @ self.mu_) ** 2)
+                self.beta_ = np.max((n_samples - np.sum(self.gamma_)),
+                                    self.epsilon) / ed + self.epsilon
 
             # Compute marginal likelihood
             if not chol_fail:
@@ -368,7 +372,8 @@ class EMRVR(RegressorMixin, BaseRVM):
 
             # Terminate if the largest alpha change is smaller than threshold
             delta = np.amax(
-                np.absolute(np.log(self.alpha_) - np.log(self._alpha_old)))
+                np.absolute(np.log(self.alpha_ + self.epsilon) - np.log(
+                    self._alpha_old + self.epsilon)))
             if delta < self.tol and i > 1:
                 break
 
@@ -513,7 +518,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
                  gamma="auto_deprecated", coef0=0.0, tol=1e-3,
                  threshold_alpha=1e5, beta_fixed="not_fixed", alpha_max=1e9,
                  init_alpha=None, bias_used=True, max_iter=5000,
-                 compute_score=False, verbose=False):
+                 compute_score=False, epsilon=1e-08, verbose=False):
 
         self.n_iter_posterior = n_iter_posterior
 
@@ -521,7 +526,8 @@ class EMRVC(BaseRVM, ClassifierMixin):
             kernel=kernel, degree=degree, gamma=gamma, coef0=coef0, tol=tol,
             threshold_alpha=threshold_alpha, beta_fixed=beta_fixed,
             alpha_max=alpha_max, init_alpha=init_alpha, bias_used=bias_used,
-            max_iter=max_iter, compute_score=compute_score, verbose=verbose)
+            max_iter=max_iter, compute_score=compute_score, epsilon=epsilon,
+            verbose=verbose)
 
     def _classify(self, mu, Phi_):
         """ Perform Sigmoid Classification."""
@@ -692,12 +698,14 @@ class EMRVC(BaseRVM, ClassifierMixin):
 
                 # Well-determinedness parameters (gamma)
                 self.gamma_ = 1 - self.alpha_ * np.diag(self.Sigma_)
-                self.alpha_ = self.gamma_ / (self.mu_ ** 2)
+                self.alpha_ = np.max(self.gamma_, self.epsilon) / (
+                        self.mu_ ** 2) + self.epsilon
                 self.alpha_ = np.clip(self.alpha_, 0, self.alpha_max)
 
                 if not self.beta_fixed:
-                    self.beta_ = (n_samples - np.sum(self.gamma_)) / (
-                        np.sum((y - np.dot(self.Phi_, self.mu_)) ** 2))
+                    ed = np.sum((y - self.Phi_ @ self.mu_) ** 2)
+                    self.beta_ = np.max((n_samples - np.sum(self.gamma_)),
+                                        self.epsilon) / ed + self.epsilon
 
                 if self.compute_score:
                     raise ("Score not yet implemented.")
@@ -717,7 +725,8 @@ class EMRVC(BaseRVM, ClassifierMixin):
                     print()
 
                 delta = np.amax(
-                    np.absolute(np.log(self.alpha_) - np.log(self._alpha_old)))
+                    np.absolute(np.log(self.alpha_ + self.epsilon) - np.log(
+                        self._alpha_old + self.epsilon)))
 
                 if delta < self.tol and i > 1:
                     break
