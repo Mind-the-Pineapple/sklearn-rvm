@@ -286,7 +286,7 @@ class EMRVR(RegressorMixin, BaseRVM):
 
         # Initialize beta (1 / sigma squared)
         if self.beta_fixed == "not_fixed":
-            sigma_squared = (max(1e-6, np.std(y) * 0.1) ** 2)
+            sigma_squared = (max(self.epsilon, np.std(y) * 0.1) ** 2)
             self.beta_ = 1 / sigma_squared
         else:
             self.beta_ = self.beta_fixed
@@ -339,13 +339,13 @@ class EMRVR(RegressorMixin, BaseRVM):
 
             # Alpha re-estimation
             # MacKay-style update for alpha given in original NIPS paper
-            self.alpha_ = np.max(self.gamma_, self.epsilon) / (
+            self.alpha_ = np.maximum(self.gamma_, self.epsilon) / (
                     self.mu_ ** 2) + self.epsilon
 
             if self.beta_fixed == "not_fixed":
                 # Prediction error
                 ed = np.sum((y - self.Phi_ @ self.mu_) ** 2)
-                self.beta_ = np.max((n_samples - np.sum(self.gamma_)),
+                self.beta_ = max((n_samples - np.sum(self.gamma_)),
                                     self.epsilon) / ed + self.epsilon
 
             # Compute marginal likelihood
@@ -698,13 +698,13 @@ class EMRVC(BaseRVM, ClassifierMixin):
 
                 # Well-determinedness parameters (gamma)
                 self.gamma_ = 1 - self.alpha_ * np.diag(self.Sigma_)
-                self.alpha_ = np.max(self.gamma_, self.epsilon) / (
+                self.alpha_ = np.maximum(self.gamma_, self.epsilon) / (
                         self.mu_ ** 2) + self.epsilon
                 self.alpha_ = np.clip(self.alpha_, 0, self.alpha_max)
 
                 if not self.beta_fixed:
                     ed = np.sum((y - self.Phi_ @ self.mu_) ** 2)
-                    self.beta_ = np.max((n_samples - np.sum(self.gamma_)),
+                    self.beta_ = np.maximum((n_samples - np.sum(self.gamma_)),
                                         self.epsilon) / ed + self.epsilon
 
                 if self.compute_score:
