@@ -1,25 +1,17 @@
 ####################
-project-template API
+sklearn-api API
 ####################
 
-This is an example on how to document the API of your own project.
+This is the full API documentation of the `sklearn-rvm` toolbox.
+
+RVM using expectation maximization
+==============================================================
 
 .. currentmodule:: sklearn_rvm
 
-RVR
-===
-
 .. autosummary::
    :toctree: generated/
    :template: class.rst
 
-   RVR
-
-RVC
-===========
-
-.. autosummary::
-   :toctree: generated/
-   :template: class.rst
-
-   RVC
+   em_rvm.EMRVR
+   em_rvm.EMRVC
