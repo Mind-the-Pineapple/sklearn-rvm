@@ -1,3 +1,10 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+"""
+"""
+print(__doc__)
+
 from sklearn import datasets
 from sklearn.model_selection import train_test_split
 from sklearn.metrics.pairwise import pairwise_kernels

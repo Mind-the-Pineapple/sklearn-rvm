@@ -1,3 +1,10 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+"""
+"""
+print(__doc__)
+
 import numpy as np
 from sklearn.metrics.pairwise import pairwise_kernels
 
