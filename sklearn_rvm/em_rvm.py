@@ -10,7 +10,7 @@ https://github.com/ctgk/PRML/blob/master/prml/kernel/relevance_vector_regressor.
 #         Walter Hugo Lopez Pinaya
 # License: BSD 3 clause
 import warnings
-from abc import abstractmethod
+from abc import ABCMeta, abstractmethod
 
 import numpy as np
 from numpy import linalg
@@ -23,7 +23,7 @@ from sklearn.metrics.pairwise import pairwise_kernels
 import scipy.linalg
 
 
-class BaseRVM(BaseEstimator):
+class BaseRVM(BaseEstimator, metaclass=ABCMeta):
     """Basic class for Relevance Vector Machine."""
 
     @abstractmethod
