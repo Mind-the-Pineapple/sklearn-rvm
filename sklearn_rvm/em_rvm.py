@@ -326,10 +326,10 @@ class EMRVR(RegressorMixin, BaseRVM):
                     warnings.warn("Using Pseudo-Inverse")
                     upper_inv = np.linalg.pinv(upper)
 
-                self.Sigma_ = np.dot(upper_inv, upper_inv.conjugate().T)
+                self.Sigma_ = np.dot(upper_inv, upper_inv.conj().T)
 
                 self.mu_ = (upper_inv @ (
-                        upper_inv.conjugate().T @ self.Phi_.T @ y)) * self.beta_
+                        upper_inv.conj().T @ self.Phi_.T @ y)) * self.beta_
 
                 # Equivalent sigma_diag = np.diag(self.Sigma_)
                 sigma_diag = np.sum(upper_inv ** 2, axis=1)
@@ -594,7 +594,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
                 warnings.warn("Using Pseudo-Inverse")
                 upper_inv = np.linalg.pinv(upper)
 
-            self.Sigma_ = np.dot(upper_inv, upper_inv.conjugate().T)
+            self.Sigma_ = np.dot(upper_inv, upper_inv.conj().T)
 
     def fit(self, X, y):
         """Fit the RVC model according to the given training data.
