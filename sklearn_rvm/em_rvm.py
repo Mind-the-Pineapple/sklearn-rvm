@@ -111,13 +111,13 @@ class EMRVR(RegressorMixin, BaseRVM):
     Parameters
     ----------
     kernel : string, optional (default="rbf")
-         Specifies the kernel type to be used in the algorithm.
-         It must be one of "linear", "poly", "rbf" or "sigmoid".
-         If none is given, "rbf" will be used.
+        Specifies the kernel type to be used in the algorithm.
+        It must be one of "linear", "poly", "rbf", "sigmoid" or ‘precomputed’.
+        If none is given, "rbf" will be used.
 
     degree : int, optional (default=3)
-        Degree of the polynomial kernel function ("poly").
-        Ignored by all other kernels.
+        Degree of the polynomial kernel function ("poly"). Ignored by all other
+        kernels.
 
     gamma : float, optional (default="auto")
         Kernel coefficient for "rbf", "poly" and "sigmoid".
@@ -129,30 +129,41 @@ class EMRVR(RegressorMixin, BaseRVM):
         "auto" is used as a default indicating that no explicit value of gamma
         was passed.
 
+    coef0 : float, optional (default=0.0)
+        Independent term in kernel function. It is only significant in "poly"
+        and "sigmoid".
+
     tol : float, optional (default=1e-6)
         Tolerance for stopping criterion.
 
-    coef0 : float, optional (default=0.0)
-        Independent term in kernel function.
-        It is only significant in "poly" and "sigmoid".
+    threshold_alpha: float, optional (default=1e5)
+        Threshold for alpha selection criterion.
 
-    threshold_alpha:
+    beta_fixed: {"not_fixed"} or float, optional (default="not_fixed")
+        Fixed value for beta. If "not_fixed" selected, the beta is updated at
+        each iteration.
 
     alpha_max:
+        Basis functions associated with alpha value beyond this limit will be
+        purged. Must be a positive and big number.
 
-    init_alpha:
+    init_alpha: array-like of shape (n_sample) or None, optional (default=None)
+        Initial value for alpha. If None is selected, the initial value of
+        alpha is defined by init_alpha = 1 / M ** 2.
 
-    bias_used:
+    bias_used: boolean, optional (default=False)
+        Specifies if a constant (a.k.a. bias) should be added to the decision
+         function.
 
     max_iter : int, optional (default=5000)
         Hard limit on iterations within solver.
 
-    verbose : bool
-        Print message to stdin if True
+    compute_score : boolean, optional (default=False)
+        Specifies if compute the objective function at each step of the model.
 
-    compute_score : boolean, optional
-        If True, compute the objective function at each step of the model.
-        Default is False.
+    verbose : boolean, optional (default=False)
+        Enable verbose output.
+
 
     Attributes
     ----------
@@ -162,17 +173,23 @@ class EMRVR(RegressorMixin, BaseRVM):
     relevance_vectors_ : array-like, shape = [n_relevance, n_features]
         Relevance vectors (equivalent to X[relevance_]).
 
-    alpha_:
+    alpha_: array-like, shape = [n_samples]
+        Estimated alpha values.
 
-    gamma_:
+    gamma_: array-like, shape = [n_samples]
+        Estimated gamma values.
 
-    Phi_:
+    Phi_: array-like, shape = (n_samples, n_features)
 
-    Sigma_:
 
-    mu_:
+    Sigma_: array-like, shape = (n_samples, n_features)
+        Estimated covariance matrix of the weights.
+
+    mu_: array-like, shape = (n_relevance, n_features)
+        Coefficients of the regression model (mean of posterior distribution)
 
     coef_ : array, shape = [n_class * (n_class-1) / 2, n_features]
+        Coefficients of the regression model (mean of posterior distribution)
         Weights assigned to the features (coefficients in the primal
         problem). This is only available in the case of a linear kernel.
         `coef_` is a readonly property derived from `mu` and
@@ -186,7 +203,7 @@ class EMRVR(RegressorMixin, BaseRVM):
     References
     ----------
     .. [1] `Tipping, Michael E (2000). "The relevance vector machine."
-    <http://http://papers.nips.cc/paper/1719-the-relevance-vector-machine.pdf>`
+    <http://http://papers.nips.cc/paper/1719-the-relevance-vector-machine.pdf>`_
     """
 
     def __init__(self, kernel="rbf", degree=3, gamma="auto_deprecated",
@@ -346,7 +363,7 @@ class EMRVR(RegressorMixin, BaseRVM):
                 # Prediction error
                 ed = np.sum((y - self.Phi_ @ self.mu_) ** 2)
                 self.beta_ = max((n_samples - np.sum(self.gamma_)),
-                                    self.epsilon) / ed + self.epsilon
+                                 self.epsilon) / ed + self.epsilon
 
             # Compute marginal likelihood
             if not chol_fail:
@@ -433,16 +450,26 @@ class EMRVC(BaseRVM, ClassifierMixin):
     Implementation of Mike Tipping"s Relevance Vector Machine for
     classification using the scikit-learn API.
 
+    The multiclass support is handled according to a one-vs-rest scheme.
+
+    For details on the precise mathematical formulation of the provided
+    kernel functions and how `gamma`, `coef0` and `degree` affect each
+    other, see the corresponding section in the narrative documentation:
+    :ref:`svm_kernels`.
+
     Parameters
     ----------
+    n_iter_posterior: int, optional (default=50)
+        Number of iterations to calculate posterior.
+
     kernel : string, optional (default="rbf")
          Specifies the kernel type to be used in the algorithm.
-         It must be one of "linear", "poly", "rbf" or "sigmoid".
+         It must be one of "linear", "poly", "rbf", "sigmoid" or ‘precomputed’.
          If none is given, "rbf" will be used.
 
     degree : int, optional (default=3)
-        Degree of the polynomial kernel function ("poly").
-        Ignored by all other kernels.
+        Degree of the polynomial kernel function ("poly"). Ignored by all other
+         kernels.
 
     gamma : float, optional (default="auto")
         Kernel coefficient for "rbf", "poly" and "sigmoid".
@@ -454,30 +481,41 @@ class EMRVC(BaseRVM, ClassifierMixin):
         "auto" is used as a default indicating that no explicit value of gamma
         was passed.
 
+    coef0 : float, optional (default=0.0)
+        Independent term in kernel function. It is only significant in "poly"
+        and "sigmoid".
+
     tol : float, optional (default=1e-6)
         Tolerance for stopping criterion.
 
-    coef0 : float, optional (default=0.0)
-        Independent term in kernel function.
-        It is only significant in "poly" and "sigmoid".
+    threshold_alpha: float, optional (default=1e5)
+        Threshold for alpha selection criterion.
 
-    threshold_alpha:
+
+    beta_fixed: {"not_fixed"} or float, optional (default="not_fixed")
+        Fixed value for beta. If "not_fixed" selected, the beta is updated at
+        each iteration.
 
     alpha_max:
+        Basis functions associated with alpha value beyond this limit will be
+        purged. Must be a positive and big number.
 
-    init_alpha:
+    init_alpha: array-like of shape (n_sample) or None, optional (default=None)
+        Initial value for alpha. If None is selected, the initial value of
+        alpha is defined by init_alpha = 1 / M ** 2.
 
-    bias_used:
+    bias_used: boolean, optional (default=False)
+        Specifies if a constant (a.k.a. bias) should be added to the decision
+         function.
 
     max_iter : int, optional (default=5000)
         Hard limit on iterations within solver.
 
-    verbose : bool
-        Print message to stdin if True
+    compute_score : boolean, optional (default=False)
+        Specifies if compute the objective function at each step of the model.
 
-    compute_score : boolean, optional
-        If True, compute the objective function at each step of the model.
-        Default is False.
+    verbose : boolean, optional (default=False)
+        Enable verbose output.
 
     Attributes
     ----------
@@ -487,17 +525,23 @@ class EMRVC(BaseRVM, ClassifierMixin):
     relevance_vectors_ : array-like, shape = [n_relevance, n_features]
         Relevance vectors (equivalent to X[relevance_]).
 
-    alpha_:
+    alpha_: array-like, shape = [n_samples]
+        Estimated alpha values.
 
-    gamma_:
+    gamma_: array-like, shape = [n_samples]
+        Estimated gamma values.
 
-    Phi_:
+    Phi_: array-like, shape = (n_samples, n_features)
 
-    Sigma_:
 
-    mu_:
+    Sigma_: array-like, shape = (n_samples, n_features)
+        Estimated covariance matrix of the weights.
+
+    mu_: array-like, shape = (n_relevance, n_features)
+        Coefficients of the regression model (mean of posterior distribution)
 
     coef_ : array, shape = [n_class * (n_class-1) / 2, n_features]
+        Coefficients of the regression model (mean of posterior distribution)
         Weights assigned to the features (coefficients in the primal
         problem). This is only available in the case of a linear kernel.
         `coef_` is a readonly property derived from `mu` and
@@ -510,8 +554,8 @@ class EMRVC(BaseRVM, ClassifierMixin):
 
     References
     ----------
-    .. [1] `Tipping, Michael E (2000). "The relevance vector machine."
-    <http://http://papers.nips.cc/paper/1719-the-relevance-vector-machine.pdf>`
+    .. [1] 'Tipping, Michael E (2000). "The relevance vector machine."
+    <http://http://papers.nips.cc/paper/1719-the-relevance-vector-machine.pdf>'_
     """
 
     def __init__(self, n_iter_posterior=50, kernel="rbf", degree=3,
@@ -705,7 +749,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
                 if not self.beta_fixed:
                     ed = np.sum((y - self.Phi_ @ self.mu_) ** 2)
                     self.beta_ = np.maximum((n_samples - np.sum(self.gamma_)),
-                                        self.epsilon) / ed + self.epsilon
+                                            self.epsilon) / ed + self.epsilon
 
                 if self.compute_score:
                     raise ("Score not yet implemented.")
