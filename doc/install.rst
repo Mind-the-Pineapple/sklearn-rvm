@@ -1,5 +1,5 @@
 #####################################
-Installation
+Installation sklearn-rvm
 #####################################
 
 Prerequisites
@@ -11,8 +11,8 @@ The sklearn-rvm package requires the following dependencies:
 * scipy (>=0.17)
 * scikit-learn (>=0.22)
 
-Install
-=======
+Installing the latest release
+=============================
 
 sklearn-rvm is currently available on the PyPi's reporitories and you can
 install it via `pip`::
