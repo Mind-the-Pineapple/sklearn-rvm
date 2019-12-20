@@ -1,9 +1,9 @@
-"""
-Relevance vector machine using expectation maximization like algorithm.
+"""Relevance vector machine using expectation maximization like algorithm.
 
 Based on
-https://github.com/JamesRitchie/scikit-rvm
-https://github.com/ctgk/PRML/blob/master/prml/kernel/relevance_vector_regressor.py
+--------
+    https://github.com/JamesRitchie/scikit-rvm
+    https://github.com/ctgk/PRML/blob/master/prml/kernel/relevance_vector_regressor.py
 
 """
 # Author: Pedro Ferreira da Costa
@@ -180,7 +180,7 @@ class EMRVR(RegressorMixin, BaseRVM):
         Estimated gamma values.
 
     Phi_: array-like, shape = (n_samples, n_features)
-
+        Estimated phi values.
 
     Sigma_: array-like, shape = (n_samples, n_features)
         Estimated covariance matrix of the weights.
@@ -491,7 +491,6 @@ class EMRVC(BaseRVM, ClassifierMixin):
     threshold_alpha: float, optional (default=1e5)
         Threshold for alpha selection criterion.
 
-
     beta_fixed: {"not_fixed"} or float, optional (default="not_fixed")
         Fixed value for beta. If "not_fixed" selected, the beta is updated at
         each iteration.
@@ -532,7 +531,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
         Estimated gamma values.
 
     Phi_: array-like, shape = (n_samples, n_features)
-
+        Estimated phi values.
 
     Sigma_: array-like, shape = (n_samples, n_features)
         Estimated covariance matrix of the weights.
