@@ -15,7 +15,7 @@ import numpy as np
 from sklearn_rvm import EMRVR
 
 
-def create_toy_data(n=10):
+def create_toy_data(n=20):
     x = np.linspace(0, 1, n)
     t = np.sin(2 * np.pi * x) + np.random.normal(scale=0.1, size=n)
     return x, t
@@ -30,7 +30,7 @@ model.fit(x_train[:, None], y_train)
 y, y_std = model.predict(x[:, None], return_std=True)
 
 plt.scatter(x_train, y_train, facecolor='none', edgecolor='g', label='training')
-plt.scatter(x[:, None], y, s=100, facecolor='none', edgecolor='b', label='relevance vector')
+plt.scatter(x[model.relevance_], y[model.relevance_], s=100, facecolor='none', edgecolor='b', label='relevance vector')
 plt.plot(x[:, None], y, color='r', label='predict mean')
 plt.fill_between(x, y - y_std, y + y_std, color='pink', alpha=0.2, label='predict std.')
 plt.legend(loc='best')
