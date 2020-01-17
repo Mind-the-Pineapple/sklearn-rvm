@@ -3,7 +3,7 @@
 
 """
 =========================================================
-RVM for regression
+RVM for classification
 =========================================================
 Based on https://github.com/ctgk/PRML/blob/master/notebooks/ch07_Sparse_Kernel_Machines.ipynb
 """
