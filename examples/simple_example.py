@@ -24,7 +24,7 @@ X += .3 * np.random.normal(size=n_samples)
 X = X[:, np.newaxis]
 
 # Fit the classifier
-clf = EMRVC(kernel='linear')
+clf = EMRVC(kernel="linear")
 clf.fit(X, y)
 
 print(clf.predict(X))

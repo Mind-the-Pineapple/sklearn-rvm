@@ -44,18 +44,18 @@ y = np.dot(X, w) + noise
 clf = ARDRegression(compute_score=True)
 clf.fit(X, y)
 
-rvr = EMRVR(kernel='linear')
+rvr = EMRVR(kernel="linear")
 rvr.fit(X, y)
 
 # #############################################################################
 # Plot the true weights, the estimated weights, the histogram of the
 # weights, and predictions with standard deviations
 plt.figure(figsize=(6, 5))
-plt.title('Weights of the model')
-plt.plot(rvr.coef_, color='darkblue', linestyle='-', linewidth=2, label='RVR estimate')
-plt.plot(clf.coef_, color='yellowgreen', linestyle=':', linewidth=2, label='ARD estimate')
-plt.plot(w, color='orange', linestyle='-', linewidth=2, label='Ground truth')
-plt.xlabel('Features')
-plt.ylabel('Values of the weights')
+plt.title("Weights of the model")
+plt.plot(rvr.coef_, color="darkblue", linestyle="-", linewidth=2, label="RVR estimate")
+plt.plot(clf.coef_, color="yellowgreen", linestyle=":", linewidth=2, label="ARD estimate")
+plt.plot(w, color="orange", linestyle="-", linewidth=2, label="Ground truth")
+plt.xlabel("Features")
+plt.ylabel("Values of the weights")
 plt.legend(loc=1)
 plt.show()

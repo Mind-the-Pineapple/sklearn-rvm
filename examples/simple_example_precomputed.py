@@ -24,7 +24,7 @@ X = X[:, np.newaxis]
 
 K = pairwise_kernels(X)
 # Fit the classifier
-clf = EMRVC(kernel='precomputed')
+clf = EMRVC(kernel="precomputed")
 clf.fit(K, y)
 
 print(clf.predict(K))
