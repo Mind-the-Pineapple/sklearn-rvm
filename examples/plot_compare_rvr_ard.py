@@ -1,24 +1,29 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 """
 =====================================================================
 Comparison of relevance vector regression and ARDRegression
 =====================================================================
+
+Based on https://scikit-learn.org/stable/auto_examples/linear_model/plot_ard.html#sphx-glr-auto-examples-linear-model-plot-ard-py
 """
 print(__doc__)
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from scipy import stats
-
 from sklearn.linear_model import ARDRegression
 from sklearn_rvm import EMRVR
-
 
 # #############################################################################
 # Generating simulated data with Gaussian weights
 
 # Parameters of the example
 np.random.seed(0)
+
 n_samples, n_features = 100, 100
+
 # Create Gaussian data
 X = np.random.randn(n_samples, n_features)
 # Create weights with a precision lambda_ of 4.
@@ -46,20 +51,11 @@ rvr.fit(X, y)
 # Plot the true weights, the estimated weights, the histogram of the
 # weights, and predictions with standard deviations
 plt.figure(figsize=(6, 5))
-plt.title("Weights of the model")
-plt.plot(rvr.coef_, color='darkblue', linestyle='-', linewidth=2, label="RVR estimate")
-plt.plot(clf.coef_, color='yellowgreen', linestyle=':', linewidth=2, label="ARD estimate")
-plt.plot(w, color='orange', linestyle='-', linewidth=2, label="Ground truth")
-plt.xlabel("Features")
-plt.ylabel("Values of the weights")
+plt.title('Weights of the model')
+plt.plot(rvr.coef_, color='darkblue', linestyle='-', linewidth=2, label='RVR estimate')
+plt.plot(clf.coef_, color='yellowgreen', linestyle=':', linewidth=2, label='ARD estimate')
+plt.plot(w, color='orange', linestyle='-', linewidth=2, label='Ground truth')
+plt.xlabel('Features')
+plt.ylabel('Values of the weights')
 plt.legend(loc=1)
 plt.show()
-#
-# plt.figure(figsize=(6, 5))
-# plt.title("Histogram of the weights")
-# plt.hist(clf.coef_, bins=n_features, color='navy', log=True)
-# plt.scatter(clf.coef_[relevant_features], np.full(len(relevant_features), 5.),
-#             color='gold', marker='o', label="Relevant features")
-# plt.ylabel("Features")
-# plt.xlabel("Values of the weights")
-# plt.legend(loc=1)

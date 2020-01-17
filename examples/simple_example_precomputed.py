@@ -12,7 +12,6 @@ from sklearn.metrics.pairwise import pairwise_kernels
 
 from sklearn_rvm import EMRVC
 
-
 # General a toy dataset:s it's just a straight line with some Gaussian noise:
 n_samples = 100
 np.random.seed(0)
