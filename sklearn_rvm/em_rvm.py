@@ -13,14 +13,14 @@ import warnings
 from abc import ABCMeta, abstractmethod
 
 import numpy as np
+import scipy.linalg
 from numpy import linalg
 from scipy.optimize import minimize
 from scipy.special import expit
 from sklearn.base import RegressorMixin, BaseEstimator, ClassifierMixin
+from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.utils.validation import check_X_y, check_is_fitted, check_array
-from sklearn.metrics.pairwise import pairwise_kernels
-import scipy.linalg
 
 
 class BaseRVM(BaseEstimator, metaclass=ABCMeta):
@@ -52,7 +52,7 @@ class BaseRVM(BaseEstimator, metaclass=ABCMeta):
         self.verbose = verbose
 
     def _get_kernel(self, X, Y=None):
-        """Calculates kernelised features"""
+        """Calculate kernelised features."""
         if callable(self.kernel):
             params = self.kernel_params or {}
         else:
@@ -108,6 +108,9 @@ class BaseRVM(BaseEstimator, metaclass=ABCMeta):
 class EMRVR(RegressorMixin, BaseRVM):
     """Relevance Vector Regressor.
 
+    Implementation of the relevance vector regressor using the algorithm
+    based on expectation maximization.
+
     Parameters
     ----------
     kernel : string, optional (default="rbf")
@@ -124,10 +127,7 @@ class EMRVR(RegressorMixin, BaseRVM):
 
         Current default is "auto" which uses 1 / n_features,
         if ``gamma="scale"`` is passed then it uses 1 / (n_features * X.var())
-        as value of gamma. The current default of gamma, "auto", will change
-        to "scale" in version 0.22. "auto_deprecated", a deprecated version of
-        "auto" is used as a default indicating that no explicit value of gamma
-        was passed.
+        as value of gamma.
 
     coef0 : float, optional (default=0.0)
         Independent term in kernel function. It is only significant in "poly"
@@ -136,24 +136,24 @@ class EMRVR(RegressorMixin, BaseRVM):
     tol : float, optional (default=1e-6)
         Tolerance for stopping criterion.
 
-    threshold_alpha: float, optional (default=1e5)
+    threshold_alpha : float, optional (default=1e5)
         Threshold for alpha selection criterion.
 
-    beta_fixed: {"not_fixed"} or float, optional (default="not_fixed")
+    beta_fixed : {"not_fixed"} or float, optional (default="not_fixed")
         Fixed value for beta. If "not_fixed" selected, the beta is updated at
         each iteration.
 
-    alpha_max:
+    alpha_max : int, optional (default=1e9)
         Basis functions associated with alpha value beyond this limit will be
         purged. Must be a positive and big number.
 
-    init_alpha: array-like of shape (n_sample) or None, optional (default=None)
+    init_alpha : array-like of shape (n_sample) or None, optional (default=None)
         Initial value for alpha. If None is selected, the initial value of
         alpha is defined by init_alpha = 1 / M ** 2.
 
-    bias_used: boolean, optional (default=False)
+    bias_used : boolean, optional (default=False)
         Specifies if a constant (a.k.a. bias) should be added to the decision
-         function.
+        function.
 
     max_iter : int, optional (default=5000)
         Hard limit on iterations within solver.
@@ -164,46 +164,43 @@ class EMRVR(RegressorMixin, BaseRVM):
     verbose : boolean, optional (default=False)
         Enable verbose output.
 
-
     Attributes
     ----------
-    relevance_ : array-like, shape = [n_relevance]
+    relevance_ : array-like, shape (n_relevance)
         Indices of relevance vectors.
 
-    relevance_vectors_ : array-like, shape = [n_relevance, n_features]
+    relevance_vectors_ : array-like, shape (n_relevance, n_features)
         Relevance vectors (equivalent to X[relevance_]).
 
-    alpha_: array-like, shape = [n_samples]
+    alpha_ : array-like, shape (n_samples)
         Estimated alpha values.
 
-    gamma_: array-like, shape = [n_samples]
+    gamma_ : array-like, shape (n_samples)
         Estimated gamma values.
 
-    Phi_: array-like, shape = (n_samples, n_features)
+    Phi_ : array-like, shape (n_samples, n_features)
         Estimated phi values.
 
-    Sigma_: array-like, shape = (n_samples, n_features)
+    Sigma_ : array-like, shape (n_samples, n_features)
         Estimated covariance matrix of the weights.
 
-    mu_: array-like, shape = (n_relevance, n_features)
+    mu_ : array-like, shape (n_relevance, n_features)
         Coefficients of the regression model (mean of posterior distribution)
 
-    coef_ : array, shape = [n_class * (n_class-1) / 2, n_features]
-        Coefficients of the regression model (mean of posterior distribution)
-        Weights assigned to the features (coefficients in the primal
-        problem). This is only available in the case of a linear kernel.
-        `coef_` is a readonly property derived from `mu` and
-        `relevance_vectors_`.
+    coef_ : array, shape (n_class * (n_class-1) / 2, n_features)
+        Coefficients of the regression model (mean of posterior distribution).
+        Weights assigned to the features. This is only available in the case
+        of a linear kernel. `coef_` is a readonly property derived from `mu`
+        and `relevance_vectors_`.
 
-    See also
+    See Also
     --------
     EMRVC
         Relevant Vector Machine for Classification.
 
     References
     ----------
-    .. [1] `Tipping, Michael E (2000). "The relevance vector machine."
-    <http://http://papers.nips.cc/paper/1719-the-relevance-vector-machine.pdf>`_
+    .. [1] `Tipping, Michael E (2000). "The relevance vector machine."_
     """
 
     def __init__(self, kernel="rbf", degree=3, gamma="auto_deprecated",
@@ -220,7 +217,7 @@ class EMRVR(RegressorMixin, BaseRVM):
             verbose=verbose)
 
     def compute_marginal_likelihood(self, upper_inv, ed, n_samples, y):
-        """Calculates marginal likelihood."""
+        """Calculate marginal likelihood."""
         dataLikely = (n_samples * np.log(self.beta_) - self.beta_ * ed) / 2
         logdetH = -2 * np.sum(np.log(np.diag(upper_inv)))
         marginal = dataLikely - 0.5 * (
@@ -234,17 +231,15 @@ class EMRVR(RegressorMixin, BaseRVM):
         Parameters
         ----------
         X : array-like, shape (n_samples, n_features)
-            Training vectors, where n_samples is the number of samples
-            and n_features is the number of features.
+            Training vectors.
+
         y : array-like, shape (n_samples,)
-            Target values (class labels in classification, real numbers in
-            regression)
+            Target values.
 
         Returns
         -------
         self : object
         """
-
         X, y = check_X_y(X, y, y_numeric=True, ensure_min_samples=2,
                          dtype="float64")
 
@@ -404,23 +399,22 @@ class EMRVR(RegressorMixin, BaseRVM):
 
         Parameters
         ----------
-        X : array-like, shape = (n_samples, n_features)
-            Query points where the GP is evaluated
+        X : array-like, shape (n_samples, n_features)
+            Query points to be evaluate.
 
-        return_std : bool, default: False
+        return_std : bool, optional (default=False)
             If True, the standard-deviation of the predictive distribution at
             the query points is returned along with the mean.
 
         Returns
         -------
-        y_mean : array, shape = (n_samples, [n_output_dims])
+        y_mean : array, shape (n_samples, n_output_dims)
             Mean of predictive distribution a query points
 
-        y_std : array, shape = (n_samples,), optional
+        y_std : array, shape (n_samples,), optional
             Standard deviation of predictive distribution at query points.
             Only returned when return_std is True.
         """
-        # Check is fit had been called
         check_is_fitted(self, ["relevance_", "mu_", "Sigma_"])
 
         X = check_array(X)
@@ -459,17 +453,17 @@ class EMRVC(BaseRVM, ClassifierMixin):
 
     Parameters
     ----------
-    n_iter_posterior: int, optional (default=50)
+    n_iter_posterior : int, optional (default=50)
         Number of iterations to calculate posterior.
 
     kernel : string, optional (default="rbf")
-         Specifies the kernel type to be used in the algorithm.
-         It must be one of "linear", "poly", "rbf", "sigmoid" or ‘precomputed’.
-         If none is given, "rbf" will be used.
+        Specifies the kernel type to be used in the algorithm.
+        It must be one of "linear", "poly", "rbf", "sigmoid" or ‘precomputed’.
+        If none is given, "rbf" will be used.
 
     degree : int, optional (default=3)
         Degree of the polynomial kernel function ("poly"). Ignored by all other
-         kernels.
+        kernels.
 
     gamma : float, optional (default="auto")
         Kernel coefficient for "rbf", "poly" and "sigmoid".
@@ -488,22 +482,22 @@ class EMRVC(BaseRVM, ClassifierMixin):
     tol : float, optional (default=1e-6)
         Tolerance for stopping criterion.
 
-    threshold_alpha: float, optional (default=1e5)
+    threshold_alpha : float, optional (default=1e5)
         Threshold for alpha selection criterion.
 
-    beta_fixed: {"not_fixed"} or float, optional (default="not_fixed")
+    beta_fixed : {"not_fixed"} or float, optional (default="not_fixed")
         Fixed value for beta. If "not_fixed" selected, the beta is updated at
         each iteration.
 
-    alpha_max:
+    alpha_max : int, optional (default=1e9)
         Basis functions associated with alpha value beyond this limit will be
         purged. Must be a positive and big number.
 
-    init_alpha: array-like of shape (n_sample) or None, optional (default=None)
+    init_alpha : array-like of shape (n_sample) or None, optional (default=None)
         Initial value for alpha. If None is selected, the initial value of
         alpha is defined by init_alpha = 1 / M ** 2.
 
-    bias_used: boolean, optional (default=False)
+    bias_used : boolean, optional (default=False)
         Specifies if a constant (a.k.a. bias) should be added to the decision
          function.
 
@@ -518,35 +512,34 @@ class EMRVC(BaseRVM, ClassifierMixin):
 
     Attributes
     ----------
-    relevance_ : array-like, shape = [n_relevance]
+    relevance_ : array-like, shape (n_relevance)
         Indices of relevance vectors.
 
-    relevance_vectors_ : array-like, shape = [n_relevance, n_features]
+    relevance_vectors_ : array-like, shape (n_relevance, n_features)
         Relevance vectors (equivalent to X[relevance_]).
 
-    alpha_: array-like, shape = [n_samples]
+    alpha_ : array-like, shape (n_samples)
         Estimated alpha values.
 
-    gamma_: array-like, shape = [n_samples]
+    gamma_ : array-like, shape (n_samples)
         Estimated gamma values.
 
-    Phi_: array-like, shape = (n_samples, n_features)
+    Phi_ : array-like, shape (n_samples, n_features)
         Estimated phi values.
 
-    Sigma_: array-like, shape = (n_samples, n_features)
+    Sigma_ : array-like, shape (n_samples, n_features)
         Estimated covariance matrix of the weights.
 
-    mu_: array-like, shape = (n_relevance, n_features)
-        Coefficients of the regression model (mean of posterior distribution)
+    mu_ : array-like, shape (n_relevance, n_features)
+        Coefficients of the classifier (mean of posterior distribution)
 
-    coef_ : array, shape = [n_class * (n_class-1) / 2, n_features]
-        Coefficients of the regression model (mean of posterior distribution)
-        Weights assigned to the features (coefficients in the primal
-        problem). This is only available in the case of a linear kernel.
-        `coef_` is a readonly property derived from `mu` and
-        `relevance_vectors_`.
+    coef_ : array, shape (n_class * (n_class-1) / 2, n_features)
+        Coefficients of the classfier (mean of posterior distribution).
+        Weights assigned to the features. This is only available in the case
+        of a linear kernel. `coef_` is a readonly property derived from `mu`
+        and `relevance_vectors_`.
 
-    See also
+    See Also
     --------
     EMRVR
         Relevant Vector Machine for Regression.
@@ -554,7 +547,6 @@ class EMRVC(BaseRVM, ClassifierMixin):
     References
     ----------
     .. [1] 'Tipping, Michael E (2000). "The relevance vector machine."
-    <http://http://papers.nips.cc/paper/1719-the-relevance-vector-machine.pdf>'_
     """
 
     def __init__(self, n_iter_posterior=50, kernel="rbf", degree=3,
@@ -589,13 +581,13 @@ class EMRVC(BaseRVM, ClassifierMixin):
         return log_p, jacobian
 
     def _compute_hessian(self, mu, alpha, Phi_, t):
-        """ Perform the Inverse of Covariance"""
+        """ Perform the Inverse of Covariance."""
         y = self._classify(mu, Phi_)
         B = np.diag(y * (1 - y))
         return np.diag(alpha) + np.dot(Phi_.T, np.dot(B, Phi_))
 
     def _posterior(self):
-        """ Calculates the posterior likelihood."""
+        """ Calculate the posterior likelihood."""
         result = minimize(
             fun=self._log_posterior,
             hess=self._compute_hessian,
@@ -645,11 +637,10 @@ class EMRVC(BaseRVM, ClassifierMixin):
         Parameters
         ----------
         X : array-like, shape (n_samples, n_features)
-            Training vectors, where n_samples is the number of samples
-            and n_features is the number of features.
+            Training vectors.
+
         y : array-like, shape (n_samples,)
-            Target values (class labels in classification, real numbers in
-            regression)
+            Target values.
 
         Returns
         -------
@@ -811,14 +802,13 @@ class EMRVC(BaseRVM, ClassifierMixin):
 
         Parameters
         ----------
-        X : array-like, shape = (n_samples, n_features)
-            Query points where the GP is evaluated
+        X : array-like, shape (n_samples, n_features)
+            Query points to be evaluate.
 
         Returns
         -------
         results : array, shape = (n_samples, [n_output_dims])
             Mean of predictive distribution a query points
-
         """
         # Check is fit had been called
         check_is_fitted(self, ["relevance_", "mu_", "Sigma_"])

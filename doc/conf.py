@@ -76,7 +76,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'sklearn-rvm'
-copyright = u'2019, Mind the Pineapple'
+copyright = u'2019 - 2020, Mind the Pineapple'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -107,7 +107,7 @@ exclude_patterns = ['_build', '_templates']
 #default_role = None
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
-#add_function_parentheses = True
+add_function_parentheses = False
 
 # If true, the current module name will be prepended to all description
 # unit titles (such as .. function::).
@@ -121,7 +121,7 @@ exclude_patterns = ['_build', '_templates']
 pygments_style = 'sphinx'
 
 # Custom style
-html_style = 'css/project-template.css'
+html_style = 'css/sklearn-rvm.css'
 
 # A list of ignored prefixes for module index sorting.
 #modindex_common_prefix = []
@@ -212,7 +212,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'project-templatedoc'
+htmlhelp_basename = 'sklearn-rvmdoc'
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -232,8 +232,8 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  ('index', 'project-template.tex', u'project-template Documentation',
-   u'Vighnesh Birodkar', 'manual'),
+  ('index', 'sklearn-rvm.tex', u'sklear-rvm Documentation',
+   u'Mind the Pineapple', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -262,8 +262,8 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'project-template', u'project-template Documentation',
-     [u'Vighnesh Birodkar'], 1)
+    ('index', 'sklearn-rvm', u'sklearn-rvm Documentation',
+     [u'Mind the Pineapple'], 1)
 ]
 
 # If true, show URL addresses after external links.
@@ -276,8 +276,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'project-template', u'project-template Documentation',
-   u'Vighnesh Birodkar', 'project-template', 'One line description of project.',
+  ('index', 'sklearn-rvm', u'sklearn-rvm Documentation',
+   u'Mind the Pineapple', 'sklearn-rvm', 'One line description of project.',
    'Miscellaneous'),
 ]
 
