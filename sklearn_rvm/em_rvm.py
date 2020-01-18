@@ -102,6 +102,7 @@ class BaseRVM(BaseEstimator, metaclass=ABCMeta):
         return coef
 
     def _get_coef(self):
+        "Calculates coefficients."
         return np.dot(self.mu_, self.relevance_vectors_)
 
 
@@ -115,14 +116,14 @@ class EMRVR(RegressorMixin, BaseRVM):
     ----------
     kernel : string, optional (default="rbf")
         Specifies the kernel type to be used in the algorithm.
-        It must be one of "linear", "poly", "rbf", "sigmoid" or ‘precomputed’.
+        It must be one of "linear", "poly", "rbf", "sigmoid" or "precomputed".
         If none is given, "rbf" will be used.
 
     degree : int, optional (default=3)
         Degree of the polynomial kernel function ("poly"). Ignored by all other
         kernels.
 
-    gamma : float, optional (default="auto")
+    gamma : {"auto", "scale"} or float, optional (default="auto")
         Kernel coefficient for "rbf", "poly" and "sigmoid".
 
         Current default is "auto" which uses 1 / n_features,
@@ -159,7 +160,7 @@ class EMRVR(RegressorMixin, BaseRVM):
         Hard limit on iterations within solver.
 
     compute_score : boolean, optional (default=False)
-        Specifies if compute the objective function at each step of the model.
+        Specifies if the objective function is computed at each step of the model.
 
     verbose : boolean, optional (default=False)
         Enable verbose output.
@@ -267,7 +268,7 @@ class EMRVR(RegressorMixin, BaseRVM):
                                   "gamma explicitly to 'auto' or 'scale' to "
                                   "avoid this warning.", FutureWarning)
                 self._gamma = 1.0 / X.shape[1]
-        elif self.gamma == 'auto':
+        elif self.gamma == "auto":
             self._gamma = 1.0 / X.shape[1]
         else:
             self._gamma = self.gamma
@@ -394,8 +395,8 @@ class EMRVR(RegressorMixin, BaseRVM):
     def predict(self, X, return_std=False):
         """Predict using the RVR model.
 
-        In addition to the mean of the predictive distribution, also its
-        standard deviation can be returned.
+        In addition to the mean of the predictive distribution, its
+        standard deviation can also be returned.
 
         Parameters
         ----------
@@ -409,7 +410,7 @@ class EMRVR(RegressorMixin, BaseRVM):
         Returns
         -------
         y_mean : array, shape (n_samples, n_output_dims)
-            Mean of predictive distribution a query points
+            Mean of predictive distribution at query points
 
         y_std : array, shape (n_samples,), optional
             Standard deviation of predictive distribution at query points.
@@ -499,13 +500,13 @@ class EMRVC(BaseRVM, ClassifierMixin):
 
     bias_used : boolean, optional (default=False)
         Specifies if a constant (a.k.a. bias) should be added to the decision
-         function.
+        function.
 
     max_iter : int, optional (default=5000)
         Hard limit on iterations within solver.
 
     compute_score : boolean, optional (default=False)
-        Specifies if compute the objective function at each step of the model.
+        Specifies if the objective function is computed at each step of the model.
 
     verbose : boolean, optional (default=False)
         Enable verbose output.
@@ -797,8 +798,8 @@ class EMRVC(BaseRVM, ClassifierMixin):
     def predict(self, X):
         """Predict using the RVC model.
 
-        In addition to the mean of the predictive distribution, also its
-        standard deviation can be returned.
+        In addition to the mean of the predictive distribution, its
+        standard deviation can also be returned.
 
         Parameters
         ----------
@@ -808,7 +809,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
         Returns
         -------
         results : array, shape = (n_samples, [n_output_dims])
-            Mean of predictive distribution a query points
+            Mean of predictive distribution at query points
         """
         # Check is fit had been called
         check_is_fitted(self, ["relevance_", "mu_", "Sigma_"])
