@@ -18,6 +18,7 @@ import os
 import sphinx_gallery
 import sphinx_rtd_theme
 
+
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
@@ -32,29 +33,31 @@ sys.path.insert(0, os.path.abspath('.'))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
+    'sphinx.ext.autodoc', 'sphinx.ext.autosummary',
+    'numpydoc',
+    # 'sphinx.ext.linkcode',
     'sphinx.ext.doctest',
     'sphinx.ext.intersphinx',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.napoleon',
-    'numpydoc',
+    'sphinx.ext.imgconverter',
     'sphinx_gallery.gen_gallery',
+    'sphinx_issues',
 ]
 
-# this is needed for some reason...
-# see https://github.com/numpy/numpydoc/issues/69
-numpydoc_show_class_members = False
-
-# pngmath / imgmath compatibility layer for different sphinx versions
-import sphinx
-from distutils.version import LooseVersion
-if LooseVersion(sphinx.__version__) < LooseVersion('1.4'):
-    extensions.append('sphinx.ext.pngmath')
-else:
+# For maths, use mathjax by default and svg if NO_MATHJAX env variable is set
+# (useful for viewing the doc offline)
+if os.environ.get('NO_MATHJAX'):
     extensions.append('sphinx.ext.imgmath')
+    imgmath_image_format = 'svg'
+    mathjax_path = ''
+else:
+    extensions.append('sphinx.ext.mathjax')
+    mathjax_path = ('https://cdn.jsdelivr.net/npm/mathjax@3/es5/'
+                    'tex-chtml.js')
 
-autodoc_default_flags = ['members', 'inherited-members']
+autodoc_default_options = {
+    'members': True,
+    'inherited-members': True
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -69,7 +72,7 @@ source_suffix = '.rst'
 #source_encoding = 'utf-8-sig'
 
 # Generate the plots for the gallery
-plot_gallery = True
+# plot_gallery = True
 
 # The master toctree document.
 master_doc = 'index'
@@ -100,14 +103,14 @@ release = __version__
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['_build', '_templates']
+exclude_patterns = ['_build', 'templates', 'includes', 'themes']
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
-#default_role = None
+default_role = 'literal'
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
-# add_function_parentheses = False
+add_function_parentheses = False
 
 # If true, the current module name will be prepended to all description
 # unit titles (such as .. function::).
@@ -121,7 +124,7 @@ exclude_patterns = ['_build', '_templates']
 pygments_style = 'sphinx'
 
 # Custom style
-html_style = 'css/sklearn-rvm.css'
+# html_style = 'css/sklearn-rvm.css'
 
 # A list of ignored prefixes for module index sorting.
 #modindex_common_prefix = []
@@ -134,22 +137,24 @@ html_style = 'css/sklearn-rvm.css'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'sphinx_rtd_theme'
+# html_theme = 'sphinx_rtd_theme'
+html_theme = 'scikit-learn-modern'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-#html_theme_options = {}
+html_theme_options = {'google_analytics': True,
+                      'mathjax_path': mathjax_path}
 
 # Add any paths that contain custom themes here, relative to this directory.
-html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+html_theme_path = ['themes']
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
 #html_title = None
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-#html_short_title = None
+html_short_title = 'scikit-rvm'
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
