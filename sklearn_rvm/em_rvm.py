@@ -199,9 +199,11 @@ class EMRVR(RegressorMixin, BaseRVM):
     EMRVC
         Relevant Vector Machine for Classification.
 
-    References
-    ----------
-    .. [1] `Tipping, Michael E (2000). "The relevance vector machine."_
+    Notes
+    -----
+    **References:**
+    `The relevance vector machine.
+    <http://www.miketipping.com/sparsebayes.htm>`__
     """
 
     def __init__(self, kernel="rbf", degree=3, gamma="auto_deprecated",
@@ -545,9 +547,11 @@ class EMRVC(BaseRVM, ClassifierMixin):
     EMRVR
         Relevant Vector Machine for Regression.
 
-    References
-    ----------
-    .. [1] 'Tipping, Michael E (2000). "The relevance vector machine."
+    Notes
+    -----
+    **References:**
+    `The relevance vector machine.
+    <http://www.miketipping.com/sparsebayes.htm>`__
     """
 
     def __init__(self, n_iter_posterior=50, kernel="rbf", degree=3,
