@@ -15,14 +15,17 @@
 import sys
 import os
 
-import sphinx_gallery
 import sphinx_rtd_theme
 
+# If extensions (or modules to document with autodoc) are in another
+# directory, add these directories to sys.path here. If the directory
+# is relative to the documentation root, use os.path.abspath to make it
+# absolute, like shown here.
+sys.path.insert(0, os.path.abspath('sphinxext'))
 
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.abspath('.'))
+from github_link import make_linkcode_resolve
+import sphinx_gallery
+
 
 # -- General configuration ------------------------------------------------
 
@@ -35,13 +38,12 @@ sys.path.insert(0, os.path.abspath('.'))
 extensions = [
     'sphinx.ext.autodoc', 'sphinx.ext.autosummary',
     'numpydoc',
-    # 'sphinx.ext.linkcode',
+    'sphinx.ext.linkcode',
     'sphinxcontrib.fulltoc',
     'sphinx.ext.doctest',
     'sphinx.ext.intersphinx',
     'sphinx.ext.imgconverter',
     'sphinx_gallery.gen_gallery',
-    'sphinx_issues',
 ]
 
 # For maths, use mathjax by default and svg if NO_MATHJAX env variable is set
@@ -159,12 +161,12 @@ html_short_title = 'scikit-rvm'
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-#html_logo = None
+html_logo = 'logos/scikit-rvm-logo-small.png'
 
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
-#html_favicon = None
+html_favicon = 'logos/favicon.ico'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -322,3 +324,9 @@ sphinx_gallery_conf = {
 def setup(app):
     # a copy button to copy snippet of code from the documentation
     app.add_javascript('js/copybutton.js')
+
+# The following is used by sphinx.ext.linkcode to provide links to github
+linkcode_resolve = make_linkcode_resolve('sklearn',
+                                         'https://github.com/Mind-the-Pineapple/'
+                                         'sklearn-rvm/blob/{revision}/'
+                                         '{package}/{path}#L{lineno}')

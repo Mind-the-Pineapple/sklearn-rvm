@@ -8,12 +8,6 @@
 
 {%- set drop_down_navigation = [
   ('Getting Started', pathto('install')),
-  ('Tutorial', pathto('tutorial/index')),
-  ('Glossary', pathto('glossary')),
-  ('Development', pathto('developers/index')),
-  ('FAQ', pathto('faq')),
-  ('Related packages', pathto('related_projects')),
-  ('Roadmap', pathto('roadmap')),
   ('About us', pathto('about')),
   ('GitHub', 'https://github.com/Mind-the-Pineapple/sklearn-rvm'),
   ('Other Versions', 'https://pypi.org/project/sklearn-rvm/#history')]
@@ -58,6 +52,14 @@
         </li>
         <li class="nav-item">
           <a class="sk-nav-link nav-link" href="{{ pathto('auto_examples/index') }}">Examples</a>
+        </li>
+        <li class="nav-item dropdown nav-more-item-dropdown">
+          <a class="sk-nav-link nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">More</a>
+          <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+            {%- for title, link in drop_down_navigation %}
+              <a class="sk-nav-dropdown-item dropdown-item" href="{{ link }}">{{ title}}</a>
+            {%- endfor %}
+          </div>
         </li>
       </ul>
       {%- if pagename != "search"%}

@@ -24,6 +24,12 @@ Welcome to sklearn-rvm's documentation!
 
    auto_examples/index
 
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   about
+
 `Getting started <install.html>`_
 ---------------------------------
 
@@ -47,3 +53,6 @@ all functions, and all parameters available for the algorithms.
 
 A set of examples illustrating the use of the different algorithms. It
 complements the `User Guide <user_guide.html>`_.
+
+`About us <about.html>`_
+--------------------------------------
