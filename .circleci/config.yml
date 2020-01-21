@@ -1,7 +1,8 @@
 version: 2
 
+
 jobs:
-  python3:
+  doc-min-dependencies:
     docker:
       - image: circleci/python:3.6.1
     steps:
@@ -14,8 +15,8 @@ jobs:
             conda update --yes --quiet conda
             conda create -n testenv --yes --quiet python=3
             source activate testenv
-            conda install --yes pip numpy scipy scikit-learn matplotlib sphinx sphinx_rtd_theme sphinxcontrib-fulltoc sphinx-issues numpydoc pillow
-            pip install sphinx-gallery
+            conda install --yes pip numpy scipy scikit-learn matplotlib sphinx sphinx_rtd_theme numpydoc pillow
+            pip install sphinx-gallery sphinxcontrib-fulltoc
             pip install .
             cd doc
             make html
