@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 from sklearn_rvm import EMRVR
 from sklearn.metrics.pairwise import pairwise_kernels
+from sklearn import datasets
 
 boston = datasets.load_boston()
 rng = np.random.RandomState(0)

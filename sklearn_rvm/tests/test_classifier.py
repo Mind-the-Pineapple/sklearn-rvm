@@ -1,6 +1,8 @@
 #import pytest
 import numpy as np
 from sklearn_rvm import EMRVC
+from sklearn import datasets
+from sklearn.multiclass import OneVsRestClassifier
 
 iris = datasets.load_iris()
 rng = np.random.RandomState(0)
