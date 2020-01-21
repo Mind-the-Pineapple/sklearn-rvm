@@ -1,10 +1,9 @@
 version: 2
 
-
 jobs:
-  doc-min-dependencies:
+  python3:
     docker:
-      - image: circleci/python:3.6.1
+      - image: circleci/python:3.7.3-stretch
     steps:
       - checkout
       - run:
