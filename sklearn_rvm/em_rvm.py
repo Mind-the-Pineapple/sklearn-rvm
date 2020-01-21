@@ -102,7 +102,7 @@ class BaseRVM(BaseEstimator, metaclass=ABCMeta):
         return coef
 
     def _get_coef(self):
-        "Calculates coefficients."
+        "Calculate coefficients."
         return np.dot(self.mu_, self.relevance_vectors_)
 
 
@@ -693,6 +693,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
             raise ValueError("Need 2 or more classes.")
 
         elif n_classes == 2:
+            
             self.t = np.zeros(y.shape)
             self.t[y == self.classes_[1]] = 1
 
@@ -782,7 +783,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
 
     def predict_proba(self, X):
         """Return an array of class probabilities."""
-        check_is_fitted(self, ["relevance_", "mu_", "Sigma_"])
+        #check_is_fitted(self, ["relevance_", "mu_", "Sigma_"])
 
         if len(self.classes_) == 2:
             X = check_array(X)
@@ -816,7 +817,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
             Mean of predictive distribution at query points
         """
         # Check is fit had been called
-        check_is_fitted(self, ["relevance_", "mu_", "Sigma_"])
+        #check_is_fitted(self, ["relevance_", "mu_", "Sigma_"])
 
         if len(self.classes_) == 2:
             y = self.predict_proba(X)
