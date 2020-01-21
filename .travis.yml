@@ -1,27 +1,19 @@
+dist: trusty
+sudo: false
+
 language: python
 
 cache:
-  apt: true
   directories:
   - $HOME/.cache/pip
-  - $HOME/.ccache
-
-dist: xenial
-
-env:
-  global:
-    # Directory where tests are run from
-    - OMP_NUM_THREADS=4
-    - OPENBLAS_NUM_THREADS=4
 
 matrix:
   include:
-    # Linux environment to test scikit-learn against numpy and scipy master
-    # installed from their CI wheels in a virtualenv with the Python
-    # interpreter provided by travis.
-    -  python: 3.7
-       env: CHECK_WARNINGS="true"
-       if: type = cron OR commit_message =~ /\[scipy-dev\]/
+    - env: PYTHON_VERSION="3.5" NUMPY_VERSION="1.13.1" SCIPY_VERSION="0.19.1"
+           SKLEARN_VERSION="0.19.1"
+    - env: PYTHON_VERSION="3.7" NUMPY_VERSION="*" SCIPY_VERSION="*"
+           SKLEARN_VERSION="*"
+
 
 install:
   # install miniconda
@@ -32,18 +24,10 @@ install:
   - export PATH=$MINICONDA_PATH/bin:$PATH
   - conda update --yes conda
   # create the testing environment
-  - conda create -n testenv --yes python=3.7
+  - conda create -n testenv --yes python=$PYTHON_VERSION pip
   - source activate testenv
-  - pip install --upgrade pip setuptools
-  - echo "Installing numpy and scipy master wheels"
-  - dev_url=https://7933911d6844c6c53a7d-47bd50c35cd79bd838daf386af554a83.ssl.cf2.rackcdn.com
-  - pip install --pre --upgrade --timeout=60 -f $dev_url numpy scipy pandas cython scikit-learn
-  - pip install pytest==4.6.4 pytest-cov
-  # Build scikit-learn in the install.sh script to collapse the verbose
-  # build output in the travis output when it succeeds.
-  - python --version
-  - python -c "import numpy; print('numpy %s' % numpy.__version__)"
-  - python -c "import scipy; print('scipy %s' % scipy.__version__)"
+  - conda install --yes numpy==$NUMPY_VERSION scipy==$SCIPY_VERSION scikit-learn==$SKLEARN_VERSION cython nose pytest pytest-cov
+  - pip install codecov
   - pip install .
 
 script:
