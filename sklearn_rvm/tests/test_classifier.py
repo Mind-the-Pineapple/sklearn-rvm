@@ -12,8 +12,8 @@ iris.target = iris.target[perm]
 n_classes = 3
 
 def test_simple_fit_predict():
-    X = np.array([-1, 1, 1, 1]).reshape(-1,1)
-    y = np.array([0, 1, 1, 1])
+    X = np.array([-1, -1, -1,-1, 1, 1, 1, 1]).reshape(-1,1)
+    y = np.array([0, 0, 0, 0, 1, 1, 1, 1])
     clf = EMRVC()
     pred = clf.fit(X,y).predict(X)
     assert pred.all() == y.all()
