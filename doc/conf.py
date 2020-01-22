@@ -24,7 +24,7 @@ import sphinx_rtd_theme
 sys.path.insert(0, os.path.abspath('sphinxext'))
 
 from github_link import make_linkcode_resolve
-import sphinx_gallery
+# import sphinx_gallery
 
 
 # -- General configuration ------------------------------------------------
@@ -43,7 +43,7 @@ extensions = [
     'sphinx.ext.doctest',
     'sphinx.ext.intersphinx',
     'sphinx.ext.imgconverter',
-    'sphinx_gallery.gen_gallery',
+    # 'sphinx_gallery.gen_gallery',
 ]
 
 # For maths, use mathjax by default and svg if NO_MATHJAX env variable is set
