@@ -19,7 +19,7 @@
       <a class="navbar-brand py-0" href="{{ pathto('index') }}">
         <img
           class="sk-brand-img"
-          src="logo.png"
+          src="{{ pathto('_static/' + logo, 1) }}"
           alt="logo"/>
       </a>
     {%- endif %}
