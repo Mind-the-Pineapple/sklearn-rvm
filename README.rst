@@ -1,18 +1,15 @@
 .. -*- mode: rst -*-
 
-|Travis|_ |AppVeyor|_ |Codecov|_ |CircleCI|_ |ReadTheDocs|_
+|Travis|_ |Codecov|_ |CircleCI|_ |ReadTheDocs|_
 
-.. |Travis| image:: https://travis-ci.org/scikit-learn-contrib/project-template.svg?branch=master
-.. _Travis: https://travis-ci.org/scikit-learn-contrib/project-template
+.. |Travis| image:: https://travis-ci.com/Mind-the-Pineapple/sklearn-rvm.svg?branch=master
+.. _Travis: https://travis-ci.com/Mind-the-Pineapple/sklearn-rvm
 
-.. |AppVeyor| image:: https://ci.appveyor.com/api/projects/status/coy2qqaqr1rnnt5y/branch/master?svg=true
-.. _AppVeyor: https://ci.appveyor.com/project/glemaitre/project-template
+.. |Codecov| image:: https://codecov.io/gh/Mind-the-Pineapple/sklearn-rvm/branch/master/graph/badge.svg
+.. _Codecov: https://codecov.io/gh/Mind-the-Pineapple/sklearn-rvm
 
-.. |Codecov| image:: https://codecov.io/gh/scikit-learn-contrib/project-template/branch/master/graph/badge.svg
-.. _Codecov: https://codecov.io/gh/scikit-learn-contrib/project-template
-
-.. |CircleCI| image:: https://circleci.com/gh/scikit-learn-contrib/project-template.svg?style=shield&circle-token=:circle-token
-.. _CircleCI: https://circleci.com/gh/scikit-learn-contrib/project-template/tree/master
+.. |CircleCI| image:: https://circleci.com/gh/Mind-the-Pineapple/sklearn-rvm.svg?style=shield&circle-token=:circle-token
+.. _CircleCI: https://circleci.com/gh/Mind-the-Pineapple/sklearn-rvm
 
 .. |ReadTheDocs| image:: https://readthedocs.org/projects/sklearn-rvm/badge/?version=latest
 .. _ReadTheDocs: https://sklearn-rvm.readthedocs.io/en/latest/?badge=latest

@@ -1,0 +1,6 @@
+sphinx==2.3.1
+sphinx-gallery
+sphinx_rtd_theme
+numpydoc
+sphinxcontrib-fulltoc
+scikit-learn

@@ -1,0 +1,5 @@
+.. _mathematics:
+
+========================
+Mathematical Formulation
+========================

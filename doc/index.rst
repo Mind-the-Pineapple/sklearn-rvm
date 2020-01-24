@@ -1,20 +1,13 @@
-.. project-template documentation master file, created by
-   sphinx-quickstart on Mon Jan 18 14:44:12 2016.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
+============================================
 Welcome to sklearn-rvm's documentation!
 ============================================
-
-This project is a reference implementation to anyone who wishes to develop
-scikit-learn compatible classes.
 
 .. toctree::
    :maxdepth: 2
    :hidden:
    :caption: Getting Started
 
-   quick_start
+   install
 
 .. toctree::
    :maxdepth: 2
@@ -31,22 +24,35 @@ scikit-learn compatible classes.
 
    auto_examples/index
 
-`Getting started <quick_start.html>`_
--------------------------------------
+.. toctree::
+   :maxdepth: 2
+   :hidden:
 
-Information regarding this template and how to modify it for your own project.
+   about
+
+`Getting started <install.html>`_
+---------------------------------
+
+Information to install, test, and contribute to the package.
 
 `User Guide <user_guide.html>`_
 -------------------------------
 
-An example of narrative documentation.
+The main documentation. This contains an in-depth description of all
+algorithms and how to apply them.
 
 `API Documentation <api.html>`_
 -------------------------------
 
-An example of API documentation.
+The exact API of all functions and classes, as given in the
+doctring. The API documents expected types and allowed features for
+all functions, and all parameters available for the algorithms.
 
 `Examples <auto_examples/index.html>`_
 --------------------------------------
 
-A set of examples. It complements the `User Guide <user_guide.html>`_.
+A set of examples illustrating the use of the different algorithms. It
+complements the `User Guide <user_guide.html>`_.
+
+`About us <about.html>`_
+--------------------------------------

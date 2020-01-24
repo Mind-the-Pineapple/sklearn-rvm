@@ -1,4 +1,4 @@
-name: project-template
+name: sklearn_rvm
 dependencies:
   - numpy
   - scipy
