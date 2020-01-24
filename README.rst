@@ -36,7 +36,7 @@ Requirements
 Documentation
 -------------
 
-.. _documentation: https://sklearn-rvm.readthedocs.io/en/latest/quick_start.html
+.. _documentation: https://sklearn-rvm.readthedocs.io/en/latest/index.html
 
 Refer to the documentation_ to modify the template for your own scikit-learn
 contribution.
