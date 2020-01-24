@@ -11,13 +11,10 @@ Citing sklearn-rvm
 If you use sklearn-rvm in a scientific publication, we would appreciate
 citations to the following paper::
 
-  @article{,
-  author  = {},
-  title   = {},
-  journal = {},
-  year    = {},
-  volume  = {},
-  number  = {},
-  pages   = {},
-  url     = {}
-  }
+ @inproceedings{tipping2000relevance,
+  title={The relevance vector machine},
+  author={Tipping, Michael E},
+  booktitle={Advances in neural information processing systems},
+  pages={652--658},
+  year={2000}
+}
