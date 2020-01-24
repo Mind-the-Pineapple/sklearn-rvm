@@ -1,5 +1,5 @@
 
-This project was initiated in October 2019 with the mission of creating a Relevance Vector Machine implementation in Python that would be fully compatible with the _scikit-learn framework. The project was helmed by Walter Hugo Lopez Pinaya and Pedro Ferreira da Costa, researchers from King's College London.
+This project was initiated in October 2019 with the mission of creating a Relevance Vector Machine implementation in Python that would be fully compatible with the scikit-learn_ framework. The project was helmed by Walter Hugo Lopez Pinaya and Pedro Ferreira da Costa, researchers from King's College London.
 
 Mind The Pinapple
 -----------------
