@@ -207,8 +207,8 @@ class EMRVR(RegressorMixin, BaseRVM):
     """
 
     def __init__(self, kernel="rbf", degree=3, gamma="auto_deprecated",
-                 coef0=0.0, tol=1e-3, threshold_alpha=1e5,
-                 beta_fixed="not_fixed", alpha_max=1e9, init_alpha=None,
+                 coef0=0.0, tol=1e-3, threshold_alpha=1e9,
+                 beta_fixed="not_fixed", alpha_max=1e10, init_alpha=None,
                  bias_used=True, max_iter=5000, compute_score=False,
                  epsilon=1e-08, verbose=False):
 
@@ -556,7 +556,7 @@ class EMRVC(BaseRVM, ClassifierMixin):
 
     def __init__(self, n_iter_posterior=50, kernel="rbf", degree=3,
                  gamma="auto_deprecated", coef0=0.0, tol=1e-3,
-                 threshold_alpha=1e5, beta_fixed="not_fixed", alpha_max=1e9,
+                 threshold_alpha=1e9, beta_fixed="not_fixed", alpha_max=1e10,
                  init_alpha=None, bias_used=True, max_iter=5000,
                  compute_score=False, epsilon=1e-08, verbose=False):
 
